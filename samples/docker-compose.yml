@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  nginx-gateway:
+    image: nginx:alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    depends_on:
+      - auth-service
+      - payment-service
+      - user-service
+    networks:
+      - frontend
+      - backend
+
+  auth-service:
+    image: node:18-alpine
+    environment:
+      JWT_SECRET: super-secret-key-change-me
+      DATABASE_URL: postgres://user:password@postgres:5432/auth
+      REDIS_URL: redis://redis:6379
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - backend
+
+  payment-service:
+    image: python:3.12-slim
+    environment:
+      STRIPE_SECRET_KEY: sk_test_xxx
+      ALLOW_HTTP: "true"
+      DATABASE_URL: postgres://user:password@postgres:5432/payments
+    depends_on:
+      - postgres
+    ports:
+      - "8080:8080"
+    networks:
+      - backend
+
+  user-service:
+    image: python:3.12-slim
+    environment:
+      DATABASE_URL: postgres://user:password@postgres:5432/users
+      EMAIL_API_KEY: sendgrid-api-key
+    depends_on:
+      - postgres
+    networks:
+      - backend
+
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_PASSWORD: super-secret-db-password
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    ports:
+      - "5432:5432"
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    networks:
+      - backend
+
+volumes:
+  pgdata:
+
+networks:
+  frontend:
+  backend:

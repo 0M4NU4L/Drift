@@ -1,0 +1,52 @@
+{
+  "components": [
+    {
+      "name": "cdn",
+      "type": "cdn",
+      "trust_zone": "Public Internet",
+      "protocols": ["https"],
+      "source": "manual"
+    },
+    {
+      "name": "third-party-analytics",
+      "type": "third_party",
+      "trust_zone": "Third-Party APIs",
+      "protocols": ["https"],
+      "source": "manual"
+    }
+  ],
+  "flows": [
+    {
+      "source": "cdn",
+      "destination": "nginx-gateway",
+      "protocol": "https",
+      "is_encrypted": true
+    },
+    {
+      "source": "user-service",
+      "destination": "third-party-analytics",
+      "protocol": "https",
+      "data_classification": "pii",
+      "is_encrypted": true,
+      "description": "User analytics events sent to third-party"
+    }
+  ],
+  "boundaries": [
+    {
+      "name": "Third-Party Boundary",
+      "zone_from": "Internal Services",
+      "zone_to": "Third-Party APIs",
+      "components": ["user-service", "third-party-analytics"],
+      "description": "PII crosses to third-party analytics service"
+    }
+  ],
+  "assets": [
+    {
+      "name": "user-behavior-data",
+      "type": "pii",
+      "location": "third-party-analytics",
+      "classification": "sensitive",
+      "description": "User behavior and analytics data shared with third party"
+    }
+  ]
+}

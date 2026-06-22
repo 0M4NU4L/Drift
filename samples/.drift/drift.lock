@@ -1,0 +1,1019 @@
+{
+  "version": "1.0.0",
+  "timestamp": "2026-06-22T18:09:22.899574+00:00",
+  "architecture": {
+    "components": [
+      {
+        "name": "nginx-gateway",
+        "type": "api_gateway",
+        "properties": {},
+        "protocols": [],
+        "environment": {},
+        "exposed_ports": [
+          80,
+          443
+        ],
+        "trust_zone": "DMZ",
+        "source": "docker-compose",
+        "image": "nginx:alpine"
+      },
+      {
+        "name": "auth-service",
+        "type": "service",
+        "properties": {},
+        "protocols": [],
+        "environment": {
+          "JWT_SECRET": "super-secret-key-change-me",
+          "DATABASE_URL": "postgres://user:password@postgres:5432/auth",
+          "REDIS_URL": "redis://redis:6379"
+        },
+        "exposed_ports": [],
+        "trust_zone": "Internal Services",
+        "source": "docker-compose",
+        "image": "node:18-alpine"
+      },
+      {
+        "name": "payment-service",
+        "type": "service",
+        "properties": {},
+        "protocols": [],
+        "environment": {
+          "STRIPE_SECRET_KEY": "sk_test_xxx",
+          "ALLOW_HTTP": "true",
+          "DATABASE_URL": "postgres://user:password@postgres:5432/payments"
+        },
+        "exposed_ports": [
+          8080
+        ],
+        "trust_zone": "DMZ",
+        "source": "docker-compose",
+        "image": "python:3.12-slim"
+      },
+      {
+        "name": "user-service",
+        "type": "service",
+        "properties": {},
+        "protocols": [],
+        "environment": {
+          "DATABASE_URL": "postgres://user:password@postgres:5432/users",
+          "EMAIL_API_KEY": "sendgrid-api-key"
+        },
+        "exposed_ports": [],
+        "trust_zone": "Internal Services",
+        "source": "docker-compose",
+        "image": "python:3.12-slim"
+      },
+      {
+        "name": "postgres",
+        "type": "database",
+        "properties": {},
+        "protocols": [],
+        "environment": {
+          "POSTGRES_PASSWORD": "super-secret-db-password"
+        },
+        "exposed_ports": [
+          5432
+        ],
+        "trust_zone": "DMZ",
+        "source": "docker-compose",
+        "image": "postgres:16"
+      },
+      {
+        "name": "redis",
+        "type": "cache",
+        "properties": {},
+        "protocols": [],
+        "environment": {},
+        "exposed_ports": [],
+        "trust_zone": "Database Tier",
+        "source": "docker-compose",
+        "image": "redis:7-alpine"
+      },
+      {
+        "name": "aws_lb.api",
+        "type": "load_balancer",
+        "properties": {},
+        "protocols": [],
+        "environment": {},
+        "exposed_ports": [],
+        "trust_zone": "Internal Services",
+        "source": "terraform",
+        "image": ""
+      },
+      {
+        "name": "aws_db_instance.main",
+        "type": "database",
+        "properties": {
+          "has_encryption_config": true,
+          "encrypted": true
+        },
+        "protocols": [],
+        "environment": {},
+        "exposed_ports": [],
+        "trust_zone": "Database Tier",
+        "source": "terraform",
+        "image": ""
+      },
+      {
+        "name": "aws_s3_bucket.uploads",
+        "type": "storage",
+        "properties": {},
+        "protocols": [],
+        "environment": {},
+        "exposed_ports": [],
+        "trust_zone": "Internal Services",
+        "source": "terraform",
+        "image": ""
+      },
+      {
+        "name": "aws_lambda_function.processor",
+        "type": "serverless",
+        "properties": {},
+        "protocols": [],
+        "environment": {},
+        "exposed_ports": [],
+        "trust_zone": "Internal Services",
+        "source": "terraform",
+        "image": ""
+      },
+      {
+        "name": "aws_iam_role_policy.lambda_policy",
+        "type": "serverless",
+        "properties": {
+          "overly_permissive_iam": true
+        },
+        "protocols": [],
+        "environment": {},
+        "exposed_ports": [],
+        "trust_zone": "Internal Services",
+        "source": "terraform",
+        "image": ""
+      },
+      {
+        "name": "api-gateway",
+        "type": "api_gateway",
+        "properties": {},
+        "protocols": [],
+        "environment": {},
+        "exposed_ports": [
+          80,
+          443
+        ],
+        "trust_zone": "DMZ",
+        "source": "kubernetes",
+        "image": "nginx:alpine"
+      },
+      {
+        "name": "cdn",
+        "type": "cdn",
+        "properties": {},
+        "protocols": [
+          "https"
+        ],
+        "environment": {},
+        "exposed_ports": [],
+        "trust_zone": "Public Internet",
+        "source": "manual",
+        "image": ""
+      },
+      {
+        "name": "third-party-analytics",
+        "type": "third_party",
+        "properties": {},
+        "protocols": [
+          "https"
+        ],
+        "environment": {},
+        "exposed_ports": [],
+        "trust_zone": "Third-Party APIs",
+        "source": "manual",
+        "image": ""
+      }
+    ],
+    "flows": [
+      {
+        "source": "nginx-gateway",
+        "destination": "auth-service",
+        "protocol": "unknown",
+        "port": null,
+        "data_classification": "authentication_data",
+        "is_authenticated": false,
+        "is_encrypted": false,
+        "description": "Compose depends_on relationship"
+      },
+      {
+        "source": "nginx-gateway",
+        "destination": "payment-service",
+        "protocol": "unknown",
+        "port": null,
+        "data_classification": "",
+        "is_authenticated": false,
+        "is_encrypted": false,
+        "description": "Compose depends_on relationship"
+      },
+      {
+        "source": "nginx-gateway",
+        "destination": "user-service",
+        "protocol": "unknown",
+        "port": null,
+        "data_classification": "",
+        "is_authenticated": false,
+        "is_encrypted": false,
+        "description": "Compose depends_on relationship"
+      },
+      {
+        "source": "auth-service",
+        "destination": "postgres",
+        "protocol": "unknown",
+        "port": null,
+        "data_classification": "persistent_data",
+        "is_authenticated": false,
+        "is_encrypted": false,
+        "description": "Compose depends_on relationship"
+      },
+      {
+        "source": "auth-service",
+        "destination": "redis",
+        "protocol": "unknown",
+        "port": null,
+        "data_classification": "session_data",
+        "is_authenticated": false,
+        "is_encrypted": false,
+        "description": "Compose depends_on relationship"
+      },
+      {
+        "source": "payment-service",
+        "destination": "postgres",
+        "protocol": "unknown",
+        "port": null,
+        "data_classification": "persistent_data",
+        "is_authenticated": false,
+        "is_encrypted": false,
+        "description": "Compose depends_on relationship"
+      },
+      {
+        "source": "user-service",
+        "destination": "postgres",
+        "protocol": "unknown",
+        "port": null,
+        "data_classification": "persistent_data",
+        "is_authenticated": false,
+        "is_encrypted": false,
+        "description": "Compose depends_on relationship"
+      },
+      {
+        "source": "cdn",
+        "destination": "nginx-gateway",
+        "protocol": "https",
+        "port": null,
+        "data_classification": "",
+        "is_authenticated": false,
+        "is_encrypted": true,
+        "description": ""
+      },
+      {
+        "source": "user-service",
+        "destination": "third-party-analytics",
+        "protocol": "https",
+        "port": null,
+        "data_classification": "pii",
+        "is_authenticated": false,
+        "is_encrypted": true,
+        "description": "User analytics events sent to third-party"
+      }
+    ],
+    "boundaries": [
+      {
+        "name": "Ingress: main-ingress",
+        "zone_from": "Public Internet",
+        "zone_to": "DMZ",
+        "components": [],
+        "description": "Kubernetes Ingress main-ingress"
+      },
+      {
+        "name": "Third-Party Boundary",
+        "zone_from": "Internal Services",
+        "zone_to": "Third-Party APIs",
+        "components": [
+          "user-service",
+          "third-party-analytics"
+        ],
+        "description": "PII crosses to third-party analytics service"
+      },
+      {
+        "name": "DMZ → Internal Services",
+        "zone_from": "DMZ",
+        "zone_to": "Internal Services",
+        "components": [
+          "user-service",
+          "auth-service",
+          "nginx-gateway"
+        ],
+        "description": "Data crosses from DMZ to Internal Services"
+      },
+      {
+        "name": "Internal Services → DMZ",
+        "zone_from": "Internal Services",
+        "zone_to": "DMZ",
+        "components": [
+          "postgres",
+          "user-service",
+          "auth-service"
+        ],
+        "description": "Data crosses from Internal Services to DMZ"
+      },
+      {
+        "name": "Internal Services → Database Tier",
+        "zone_from": "Internal Services",
+        "zone_to": "Database Tier",
+        "components": [
+          "redis",
+          "auth-service"
+        ],
+        "description": "Data crosses from Internal Services to Database Tier"
+      },
+      {
+        "name": "Public Internet → DMZ",
+        "zone_from": "Public Internet",
+        "zone_to": "DMZ",
+        "components": [
+          "cdn",
+          "nginx-gateway"
+        ],
+        "description": "Data crosses from Public Internet to DMZ"
+      },
+      {
+        "name": "Internal Services → Third-Party APIs",
+        "zone_from": "Internal Services",
+        "zone_to": "Third-Party APIs",
+        "components": [
+          "user-service",
+          "third-party-analytics"
+        ],
+        "description": "Data crosses from Internal Services to Third-Party APIs"
+      }
+    ],
+    "assets": [
+      {
+        "name": "user-behavior-data",
+        "type": "pii",
+        "location": "third-party-analytics",
+        "classification": "sensitive",
+        "description": "User behavior and analytics data shared with third party"
+      },
+      {
+        "name": "jwt_secret",
+        "type": "credentials",
+        "location": "auth-service",
+        "classification": "sensitive",
+        "description": "secret found in auth-service environment"
+      },
+      {
+        "name": "database_url",
+        "type": "credentials",
+        "location": "auth-service",
+        "classification": "sensitive",
+        "description": "database_credential found in auth-service environment"
+      },
+      {
+        "name": "stripe_secret_key",
+        "type": "credentials",
+        "location": "payment-service",
+        "classification": "sensitive",
+        "description": "secret found in payment-service environment"
+      },
+      {
+        "name": "database_url",
+        "type": "credentials",
+        "location": "payment-service",
+        "classification": "sensitive",
+        "description": "database_credential found in payment-service environment"
+      },
+      {
+        "name": "database_url",
+        "type": "credentials",
+        "location": "user-service",
+        "classification": "sensitive",
+        "description": "database_credential found in user-service environment"
+      },
+      {
+        "name": "email_api_key",
+        "type": "api_keys",
+        "location": "user-service",
+        "classification": "sensitive",
+        "description": "api_key found in user-service environment"
+      },
+      {
+        "name": "postgres_password",
+        "type": "credentials",
+        "location": "postgres",
+        "classification": "sensitive",
+        "description": "password found in postgres environment"
+      }
+    ],
+    "metadata": {
+      "total_components": 14,
+      "total_flows": 9,
+      "total_boundaries": 7,
+      "total_assets": 8,
+      "graph_nodes": 14,
+      "graph_edges": 9
+    }
+  },
+  "threats": [
+    {
+      "id": "a5d4f46f060e",
+      "stride_category": "Spoofing",
+      "title": "Unauthenticated flow: nginx-gateway -> auth-service",
+      "severity": "medium",
+      "evidence": "nginx-gateway → auth-service has no authentication mechanism",
+      "boundary": "DMZ -> Internal Services",
+      "explanation": "Traffic from nginx-gateway (DMZ) to auth-service (Internal Services) lacks authentication. An attacker could impersonate nginx-gateway to access auth-service.",
+      "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
+      "affected_components": [
+        "nginx-gateway",
+        "auth-service"
+      ],
+      "likelihood": 3,
+      "impact": 3
+    },
+    {
+      "id": "7fa724ad3196",
+      "stride_category": "Tampering",
+      "title": "Unencrypted traffic: nginx-gateway -> auth-service",
+      "severity": "high",
+      "evidence": "nginx-gateway → auth-service is not encrypted",
+      "boundary": "DMZ -> Internal Services",
+      "explanation": "Data flowing from nginx-gateway to auth-service crosses from DMZ to Internal Services without encryption. An attacker on the network path could modify data in transit.",
+      "mitigation": "Enforce TLS 1.3 for all cross-boundary communications",
+      "affected_components": [
+        "nginx-gateway",
+        "auth-service"
+      ],
+      "likelihood": 3,
+      "impact": 4
+    },
+    {
+      "id": "534c21487c24",
+      "stride_category": "Information Disclosure",
+      "title": "Plaintext data exposure: nginx-gateway -> auth-service",
+      "severity": "critical",
+      "evidence": "nginx-gateway → auth-service transmits data without encryption",
+      "boundary": "DMZ -> Internal Services",
+      "explanation": "Data from nginx-gateway to auth-service traverses DMZ to Internal Services in plaintext. Sensitive information could be intercepted by network observers.",
+      "mitigation": "Enable TLS 1.3 and enforce HTTPS-only communication",
+      "affected_components": [
+        "nginx-gateway",
+        "auth-service"
+      ],
+      "likelihood": 4,
+      "impact": 5
+    },
+    {
+      "id": "a4479ba54a57",
+      "stride_category": "Repudiation",
+      "title": "Missing audit trail: nginx-gateway -> auth-service",
+      "severity": "medium",
+      "evidence": "Cross-boundary flow nginx-gateway → auth-service crosses a high-risk boundary",
+      "boundary": "DMZ -> Internal Services",
+      "explanation": "Traffic crossing from DMZ to Internal Services should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
+      "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
+      "affected_components": [
+        "nginx-gateway",
+        "auth-service"
+      ],
+      "likelihood": 2,
+      "impact": 3
+    },
+    {
+      "id": "63f1bdbc20a5",
+      "stride_category": "Denial of Service",
+      "title": "Denial of service risk: auth-service",
+      "severity": "high",
+      "evidence": "auth-service receives traffic from DMZ",
+      "boundary": "DMZ -> Internal Services",
+      "explanation": "auth-service in Internal Services is reachable from DMZ. Without rate limiting and circuit breakers, it could be overwhelmed by excessive requests.",
+      "mitigation": "Implement rate limiting, circuit breakers, and auto-scaling",
+      "affected_components": [
+        "auth-service"
+      ],
+      "likelihood": 3,
+      "impact": 4
+    },
+    {
+      "id": "807eaf60b1dc",
+      "stride_category": "Spoofing",
+      "title": "Unauthenticated flow: nginx-gateway -> user-service",
+      "severity": "medium",
+      "evidence": "nginx-gateway → user-service has no authentication mechanism",
+      "boundary": "DMZ -> Internal Services",
+      "explanation": "Traffic from nginx-gateway (DMZ) to user-service (Internal Services) lacks authentication. An attacker could impersonate nginx-gateway to access user-service.",
+      "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
+      "affected_components": [
+        "nginx-gateway",
+        "user-service"
+      ],
+      "likelihood": 3,
+      "impact": 3
+    },
+    {
+      "id": "03e92beb8b00",
+      "stride_category": "Tampering",
+      "title": "Unencrypted traffic: nginx-gateway -> user-service",
+      "severity": "high",
+      "evidence": "nginx-gateway → user-service is not encrypted",
+      "boundary": "DMZ -> Internal Services",
+      "explanation": "Data flowing from nginx-gateway to user-service crosses from DMZ to Internal Services without encryption. An attacker on the network path could modify data in transit.",
+      "mitigation": "Enforce TLS 1.3 for all cross-boundary communications",
+      "affected_components": [
+        "nginx-gateway",
+        "user-service"
+      ],
+      "likelihood": 3,
+      "impact": 4
+    },
+    {
+      "id": "19c0228db272",
+      "stride_category": "Information Disclosure",
+      "title": "Plaintext data exposure: nginx-gateway -> user-service",
+      "severity": "high",
+      "evidence": "nginx-gateway → user-service transmits data without encryption",
+      "boundary": "DMZ -> Internal Services",
+      "explanation": "Data from nginx-gateway to user-service traverses DMZ to Internal Services in plaintext. Sensitive information could be intercepted by network observers.",
+      "mitigation": "Enable TLS 1.3 and enforce HTTPS-only communication",
+      "affected_components": [
+        "nginx-gateway",
+        "user-service"
+      ],
+      "likelihood": 4,
+      "impact": 3
+    },
+    {
+      "id": "c5b323218adf",
+      "stride_category": "Repudiation",
+      "title": "Missing audit trail: nginx-gateway -> user-service",
+      "severity": "medium",
+      "evidence": "Cross-boundary flow nginx-gateway → user-service crosses a high-risk boundary",
+      "boundary": "DMZ -> Internal Services",
+      "explanation": "Traffic crossing from DMZ to Internal Services should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
+      "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
+      "affected_components": [
+        "nginx-gateway",
+        "user-service"
+      ],
+      "likelihood": 2,
+      "impact": 3
+    },
+    {
+      "id": "fd82cf814068",
+      "stride_category": "Denial of Service",
+      "title": "Denial of service risk: user-service",
+      "severity": "high",
+      "evidence": "user-service receives traffic from DMZ",
+      "boundary": "DMZ -> Internal Services",
+      "explanation": "user-service in Internal Services is reachable from DMZ. Without rate limiting and circuit breakers, it could be overwhelmed by excessive requests.",
+      "mitigation": "Implement rate limiting, circuit breakers, and auto-scaling",
+      "affected_components": [
+        "user-service"
+      ],
+      "likelihood": 3,
+      "impact": 4
+    },
+    {
+      "id": "82dee829e298",
+      "stride_category": "Spoofing",
+      "title": "Unauthenticated flow: auth-service -> postgres",
+      "severity": "high",
+      "evidence": "auth-service → postgres has no authentication mechanism",
+      "boundary": "Internal Services -> DMZ",
+      "explanation": "Traffic from auth-service (Internal Services) to postgres (DMZ) lacks authentication. An attacker could impersonate auth-service to access postgres.",
+      "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
+      "affected_components": [
+        "auth-service",
+        "postgres"
+      ],
+      "likelihood": 3,
+      "impact": 4
+    },
+    {
+      "id": "46b2677a33d0",
+      "stride_category": "Tampering",
+      "title": "Unencrypted traffic: auth-service -> postgres",
+      "severity": "high",
+      "evidence": "auth-service → postgres is not encrypted",
+      "boundary": "Internal Services -> DMZ",
+      "explanation": "Data flowing from auth-service to postgres crosses from Internal Services to DMZ without encryption. An attacker on the network path could modify data in transit.",
+      "mitigation": "Enforce TLS 1.3 for all cross-boundary communications",
+      "affected_components": [
+        "auth-service",
+        "postgres"
+      ],
+      "likelihood": 3,
+      "impact": 4
+    },
+    {
+      "id": "bc861a97e19f",
+      "stride_category": "Information Disclosure",
+      "title": "Plaintext data exposure: auth-service -> postgres",
+      "severity": "critical",
+      "evidence": "auth-service → postgres transmits data without encryption",
+      "boundary": "Internal Services -> DMZ",
+      "explanation": "Data from auth-service to postgres traverses Internal Services to DMZ in plaintext. Sensitive information could be intercepted by network observers.",
+      "mitigation": "Enable TLS 1.3 and enforce HTTPS-only communication",
+      "affected_components": [
+        "auth-service",
+        "postgres"
+      ],
+      "likelihood": 4,
+      "impact": 5
+    },
+    {
+      "id": "40b5b0a40c92",
+      "stride_category": "Repudiation",
+      "title": "Missing audit trail: auth-service -> postgres",
+      "severity": "medium",
+      "evidence": "Cross-boundary flow auth-service → postgres crosses a high-risk boundary",
+      "boundary": "Internal Services -> DMZ",
+      "explanation": "Traffic crossing from Internal Services to DMZ should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
+      "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
+      "affected_components": [
+        "auth-service",
+        "postgres"
+      ],
+      "likelihood": 2,
+      "impact": 3
+    },
+    {
+      "id": "eda4ac98d67d",
+      "stride_category": "Spoofing",
+      "title": "Unauthenticated flow: auth-service -> redis",
+      "severity": "medium",
+      "evidence": "auth-service → redis has no authentication mechanism",
+      "boundary": "Internal Services -> Database Tier",
+      "explanation": "Traffic from auth-service (Internal Services) to redis (Database Tier) lacks authentication. An attacker could impersonate auth-service to access redis.",
+      "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
+      "affected_components": [
+        "auth-service",
+        "redis"
+      ],
+      "likelihood": 2,
+      "impact": 3
+    },
+    {
+      "id": "a52ce2dae890",
+      "stride_category": "Tampering",
+      "title": "Unencrypted traffic: auth-service -> redis",
+      "severity": "medium",
+      "evidence": "auth-service → redis is not encrypted",
+      "boundary": "Internal Services -> Database Tier",
+      "explanation": "Data flowing from auth-service to redis crosses from Internal Services to Database Tier without encryption. An attacker on the network path could modify data in transit.",
+      "mitigation": "Enforce TLS 1.3 for all cross-boundary communications",
+      "affected_components": [
+        "auth-service",
+        "redis"
+      ],
+      "likelihood": 2,
+      "impact": 4
+    },
+    {
+      "id": "8b1503af2569",
+      "stride_category": "Information Disclosure",
+      "title": "Plaintext data exposure: auth-service -> redis",
+      "severity": "medium",
+      "evidence": "auth-service → redis transmits data without encryption",
+      "boundary": "Internal Services -> Database Tier",
+      "explanation": "Data from auth-service to redis traverses Internal Services to Database Tier in plaintext. Sensitive information could be intercepted by network observers.",
+      "mitigation": "Enable TLS 1.3 and enforce HTTPS-only communication",
+      "affected_components": [
+        "auth-service",
+        "redis"
+      ],
+      "likelihood": 3,
+      "impact": 3
+    },
+    {
+      "id": "253c01cf226b",
+      "stride_category": "Elevation of Privilege",
+      "title": "Privilege escalation path: auth-service -> redis",
+      "severity": "medium",
+      "evidence": "auth-service (Internal Services) can reach redis (Database Tier)",
+      "boundary": "Internal Services -> Database Tier",
+      "explanation": "A path exists from Internal Services to the sensitive Database Tier zone. If auth-service is compromised, an attacker could escalate access to redis.",
+      "mitigation": "Enforce strict RBAC, network segmentation, and least-privilege access",
+      "affected_components": [
+        "auth-service",
+        "redis"
+      ],
+      "likelihood": 2,
+      "impact": 5
+    },
+    {
+      "id": "fc7eaca2cc87",
+      "stride_category": "Spoofing",
+      "title": "Unauthenticated flow: user-service -> postgres",
+      "severity": "high",
+      "evidence": "user-service → postgres has no authentication mechanism",
+      "boundary": "Internal Services -> DMZ",
+      "explanation": "Traffic from user-service (Internal Services) to postgres (DMZ) lacks authentication. An attacker could impersonate user-service to access postgres.",
+      "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
+      "affected_components": [
+        "user-service",
+        "postgres"
+      ],
+      "likelihood": 3,
+      "impact": 4
+    },
+    {
+      "id": "ab7c9da71752",
+      "stride_category": "Tampering",
+      "title": "Unencrypted traffic: user-service -> postgres",
+      "severity": "high",
+      "evidence": "user-service → postgres is not encrypted",
+      "boundary": "Internal Services -> DMZ",
+      "explanation": "Data flowing from user-service to postgres crosses from Internal Services to DMZ without encryption. An attacker on the network path could modify data in transit.",
+      "mitigation": "Enforce TLS 1.3 for all cross-boundary communications",
+      "affected_components": [
+        "user-service",
+        "postgres"
+      ],
+      "likelihood": 3,
+      "impact": 4
+    },
+    {
+      "id": "cfefd389f18a",
+      "stride_category": "Information Disclosure",
+      "title": "Plaintext data exposure: user-service -> postgres",
+      "severity": "critical",
+      "evidence": "user-service → postgres transmits data without encryption",
+      "boundary": "Internal Services -> DMZ",
+      "explanation": "Data from user-service to postgres traverses Internal Services to DMZ in plaintext. Sensitive information could be intercepted by network observers.",
+      "mitigation": "Enable TLS 1.3 and enforce HTTPS-only communication",
+      "affected_components": [
+        "user-service",
+        "postgres"
+      ],
+      "likelihood": 4,
+      "impact": 5
+    },
+    {
+      "id": "b2f5b0b322af",
+      "stride_category": "Repudiation",
+      "title": "Missing audit trail: user-service -> postgres",
+      "severity": "medium",
+      "evidence": "Cross-boundary flow user-service → postgres crosses a high-risk boundary",
+      "boundary": "Internal Services -> DMZ",
+      "explanation": "Traffic crossing from Internal Services to DMZ should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
+      "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
+      "affected_components": [
+        "user-service",
+        "postgres"
+      ],
+      "likelihood": 2,
+      "impact": 3
+    },
+    {
+      "id": "0ed3a26ba8c2",
+      "stride_category": "Spoofing",
+      "title": "Unauthenticated flow: cdn -> nginx-gateway",
+      "severity": "high",
+      "evidence": "cdn → nginx-gateway has no authentication mechanism",
+      "boundary": "Public Internet -> DMZ",
+      "explanation": "Traffic from cdn (Public Internet) to nginx-gateway (DMZ) lacks authentication. An attacker could impersonate cdn to access nginx-gateway.",
+      "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
+      "affected_components": [
+        "cdn",
+        "nginx-gateway"
+      ],
+      "likelihood": 4,
+      "impact": 3
+    },
+    {
+      "id": "3e46750519a3",
+      "stride_category": "Repudiation",
+      "title": "Missing audit trail: cdn -> nginx-gateway",
+      "severity": "medium",
+      "evidence": "Cross-boundary flow cdn → nginx-gateway crosses a high-risk boundary",
+      "boundary": "Public Internet -> DMZ",
+      "explanation": "Traffic crossing from Public Internet to DMZ should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
+      "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
+      "affected_components": [
+        "cdn",
+        "nginx-gateway"
+      ],
+      "likelihood": 2,
+      "impact": 3
+    },
+    {
+      "id": "a95d01a7e7d1",
+      "stride_category": "Denial of Service",
+      "title": "Denial of service risk: nginx-gateway",
+      "severity": "high",
+      "evidence": "nginx-gateway receives traffic from Public Internet",
+      "boundary": "Public Internet -> DMZ",
+      "explanation": "nginx-gateway in DMZ is reachable from Public Internet. Without rate limiting and circuit breakers, it could be overwhelmed by excessive requests.",
+      "mitigation": "Implement rate limiting, circuit breakers, and auto-scaling",
+      "affected_components": [
+        "nginx-gateway"
+      ],
+      "likelihood": 4,
+      "impact": 3
+    },
+    {
+      "id": "c61ffbc79e81",
+      "stride_category": "Spoofing",
+      "title": "Unauthenticated flow: user-service -> third-party-analytics",
+      "severity": "medium",
+      "evidence": "user-service → third-party-analytics has no authentication mechanism",
+      "boundary": "Internal Services -> Third-Party APIs",
+      "explanation": "Traffic from user-service (Internal Services) to third-party-analytics (Third-Party APIs) lacks authentication. An attacker could impersonate user-service to access third-party-analytics.",
+      "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
+      "affected_components": [
+        "user-service",
+        "third-party-analytics"
+      ],
+      "likelihood": 3,
+      "impact": 3
+    },
+    {
+      "id": "37c33bf4f30e",
+      "stride_category": "Repudiation",
+      "title": "Missing audit trail: user-service -> third-party-analytics",
+      "severity": "medium",
+      "evidence": "Cross-boundary flow user-service → third-party-analytics crosses a high-risk boundary",
+      "boundary": "Internal Services -> Third-Party APIs",
+      "explanation": "Traffic crossing from Internal Services to Third-Party APIs should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
+      "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
+      "affected_components": [
+        "user-service",
+        "third-party-analytics"
+      ],
+      "likelihood": 2,
+      "impact": 3
+    },
+    {
+      "id": "677fda8bab73",
+      "stride_category": "Information Disclosure",
+      "title": "HTTP explicitly allowed: payment-service",
+      "severity": "high",
+      "evidence": "payment-service has ALLOW_HTTP=true in environment",
+      "boundary": "DMZ",
+      "explanation": "payment-service explicitly allows unencrypted HTTP traffic. Any data sent to or from this service could be intercepted.",
+      "mitigation": "Remove ALLOW_HTTP and enforce HTTPS-only communication",
+      "affected_components": [
+        "payment-service"
+      ],
+      "likelihood": 4,
+      "impact": 4
+    },
+    {
+      "id": "2aad14c62a61",
+      "stride_category": "Information Disclosure",
+      "title": "Publicly accessible database: postgres",
+      "severity": "critical",
+      "evidence": "postgres (database) is in DMZ",
+      "boundary": "DMZ",
+      "explanation": "Database postgres is accessible from DMZ. Databases should never be directly reachable from untrusted zones.",
+      "mitigation": "Move database to private subnet; access only through application tier",
+      "affected_components": [
+        "postgres"
+      ],
+      "likelihood": 5,
+      "impact": 5
+    },
+    {
+      "id": "ea04abfcbd47",
+      "stride_category": "Elevation of Privilege",
+      "title": "Overly permissive IAM policy: aws_iam_role_policy.lambda_policy",
+      "severity": "critical",
+      "evidence": "aws_iam_role_policy.lambda_policy has wildcard (*) IAM permissions",
+      "boundary": "Internal Services",
+      "explanation": "aws_iam_role_policy.lambda_policy has been granted wildcard permissions (Action: *, Resource: *). If this component is compromised, the attacker gains full access to all AWS resources.",
+      "mitigation": "Apply least-privilege IAM policies; scope permissions to specific resources and actions",
+      "affected_components": [
+        "aws_iam_role_policy.lambda_policy"
+      ],
+      "likelihood": 4,
+      "impact": 5
+    },
+    {
+      "id": "e9047aa219a8",
+      "stride_category": "Information Disclosure",
+      "title": "PII shared with third party: user-behavior-data",
+      "severity": "high",
+      "evidence": "PII asset 'user-behavior-data' located at third-party component third-party-analytics",
+      "boundary": "Third-Party APIs",
+      "explanation": "Personally identifiable information (user-behavior-data) is stored at or shared with third-party service third-party-analytics. This creates regulatory and privacy risks (GDPR, CCPA).",
+      "mitigation": "Minimize PII sharing; implement data processing agreements; anonymize where possible",
+      "affected_components": [
+        "third-party-analytics"
+      ],
+      "likelihood": 3,
+      "impact": 4
+    },
+    {
+      "id": "227fe04620cc",
+      "stride_category": "Information Disclosure",
+      "title": "Secret in environment: jwt_secret",
+      "severity": "high",
+      "evidence": "jwt_secret found in auth-service environment variables",
+      "boundary": "Internal Services",
+      "explanation": "Sensitive credential 'jwt_secret' is stored as an environment variable in auth-service. Environment variables can leak through logs, crash dumps, and child processes.",
+      "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
+      "affected_components": [
+        "auth-service"
+      ],
+      "likelihood": 3,
+      "impact": 5
+    },
+    {
+      "id": "f1b576be88af",
+      "stride_category": "Information Disclosure",
+      "title": "Secret in environment: database_url",
+      "severity": "high",
+      "evidence": "database_url found in auth-service environment variables",
+      "boundary": "Internal Services",
+      "explanation": "Sensitive credential 'database_url' is stored as an environment variable in auth-service. Environment variables can leak through logs, crash dumps, and child processes.",
+      "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
+      "affected_components": [
+        "auth-service"
+      ],
+      "likelihood": 3,
+      "impact": 5
+    },
+    {
+      "id": "2bd3930e17ff",
+      "stride_category": "Information Disclosure",
+      "title": "Secret in environment: stripe_secret_key",
+      "severity": "high",
+      "evidence": "stripe_secret_key found in payment-service environment variables",
+      "boundary": "DMZ",
+      "explanation": "Sensitive credential 'stripe_secret_key' is stored as an environment variable in payment-service. Environment variables can leak through logs, crash dumps, and child processes.",
+      "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
+      "affected_components": [
+        "payment-service"
+      ],
+      "likelihood": 3,
+      "impact": 5
+    },
+    {
+      "id": "f0478f93d4e0",
+      "stride_category": "Information Disclosure",
+      "title": "Secret in environment: database_url",
+      "severity": "high",
+      "evidence": "database_url found in payment-service environment variables",
+      "boundary": "DMZ",
+      "explanation": "Sensitive credential 'database_url' is stored as an environment variable in payment-service. Environment variables can leak through logs, crash dumps, and child processes.",
+      "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
+      "affected_components": [
+        "payment-service"
+      ],
+      "likelihood": 3,
+      "impact": 5
+    },
+    {
+      "id": "d9cfaaa3b20b",
+      "stride_category": "Information Disclosure",
+      "title": "Secret in environment: database_url",
+      "severity": "high",
+      "evidence": "database_url found in user-service environment variables",
+      "boundary": "Internal Services",
+      "explanation": "Sensitive credential 'database_url' is stored as an environment variable in user-service. Environment variables can leak through logs, crash dumps, and child processes.",
+      "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
+      "affected_components": [
+        "user-service"
+      ],
+      "likelihood": 3,
+      "impact": 5
+    },
+    {
+      "id": "3a2ff9f2bccd",
+      "stride_category": "Information Disclosure",
+      "title": "Secret in environment: email_api_key",
+      "severity": "high",
+      "evidence": "email_api_key found in user-service environment variables",
+      "boundary": "Internal Services",
+      "explanation": "Sensitive credential 'email_api_key' is stored as an environment variable in user-service. Environment variables can leak through logs, crash dumps, and child processes.",
+      "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
+      "affected_components": [
+        "user-service"
+      ],
+      "likelihood": 3,
+      "impact": 4
+    },
+    {
+      "id": "7576836dd046",
+      "stride_category": "Information Disclosure",
+      "title": "Secret in environment: postgres_password",
+      "severity": "high",
+      "evidence": "postgres_password found in postgres environment variables",
+      "boundary": "DMZ",
+      "explanation": "Sensitive credential 'postgres_password' is stored as an environment variable in postgres. Environment variables can leak through logs, crash dumps, and child processes.",
+      "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
+      "affected_components": [
+        "postgres"
+      ],
+      "likelihood": 3,
+      "impact": 5
+    }
+  ]
+}

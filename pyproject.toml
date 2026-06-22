@@ -1,0 +1,44 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "drift-cli"
+version = "0.1.0"
+description = "Continuous Architecture Drift Detection & Threat Modeling Engine"
+readme = "README.md"
+requires-python = ">=3.10"
+license = { text = "MIT" }
+authors = [{ name = "Drift", email = "drift@example.com" }]
+keywords = ["security", "threat-modeling", "architecture", "drift-detection", "stride"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "Topic :: Security",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+]
+
+dependencies = [
+    "typer[all]>=0.9.0",
+    "rich>=13.0.0",
+    "pydantic>=2.0.0",
+    "pyyaml>=6.0",
+    "networkx>=3.0",
+    "google-genai>=1.0.0",
+    "httpx>=0.24.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "ruff>=0.1.0"]
+
+[project.scripts]
+drift = "drift.main:app"
+
+[tool.hatch.build.targets.wheel]
+packages = ["drift"]
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"

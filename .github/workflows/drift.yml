@@ -1,0 +1,37 @@
+name: Drift Threat Modeling
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  pull-requests: write
+
+jobs:
+  drift:
+    runs-on: ubuntu-latest
+    name: Threat Model Analysis
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install Drift
+        run: pip install drift-cli
+
+      - name: Analyze Architecture
+        run: drift analyze .
+
+      - name: Check for Drift
+        run: drift diff .
+
+      - name: Post PR Comment
+        run: drift github .
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
