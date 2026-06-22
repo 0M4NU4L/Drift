@@ -156,65 +156,67 @@ def _analyze_flow(
     boundary = f"{src.trust_zone.value} -> {dst.trust_zone.value}"
     zone_risk = _get_zone_risk(src.trust_zone, dst.trust_zone)
     affected = [src.name, dst.name]
+    
+    is_public_exposure = src.trust_zone == TrustZone.PUBLIC_INTERNET
 
     # -----------------------------------------------------------------------
-    # SPOOFING — Can someone impersonate the source?
+    # SPOOFING
     # -----------------------------------------------------------------------
-    if not flow.is_authenticated:
-        likelihood = min(zone_risk, 5)
+    env_lower = {k.lower(): str(v).lower() for k, v in dst.environment.items()}
+    has_no_auth = env_lower.get("no_auth") in ("true", "1", "yes")
+    has_anonymous = env_lower.get("anonymous_access") in ("true", "1", "yes")
+    
+    if has_no_auth or has_anonymous:
+        evidence = []
+        if has_no_auth: evidence.append("NO_AUTH is enabled")
+        if has_anonymous: evidence.append("Anonymous access is enabled")
+        
+        likelihood = zone_risk
         impact = 4 if dst.type in (ComponentType.DATABASE, ComponentType.SERVERLESS) else 3
         threats.append(Threat(
-            id=_threat_id(StrideCategory.SPOOFING, f"Unauthenticated flow: {flow.label}", boundary),
+            id=_threat_id(StrideCategory.SPOOFING, f"Unauthenticated access: {flow.label}", boundary),
             stride_category=StrideCategory.SPOOFING,
-            title=f"Unauthenticated flow: {src.name} -> {dst.name}",
+            title=f"Unauthenticated access: {src.name} -> {dst.name}",
             severity=_risk_score(likelihood, impact),
-            evidence=[f"{flow.label} has no authentication mechanism"],
+            evidence=evidence,
             boundary=boundary,
-            explanation=(
-                f"Traffic from {src.name} ({src.trust_zone.value}) to {dst.name} "
-                f"({dst.trust_zone.value}) lacks authentication. An attacker could "
-                f"impersonate {src.name} to access {dst.name}."
-            ),
-            mitigation="Implement mutual TLS (mTLS) or service-to-service authentication tokens",
+            explanation=f"Traffic from {src.name} to {dst.name} has explicit properties allowing unauthenticated or anonymous access.",
+            mitigation="Remove NO_AUTH or anonymous access overrides in production.",
             affected_components=affected,
             likelihood=likelihood,
             impact=impact,
         ))
 
     # -----------------------------------------------------------------------
-    # TAMPERING — Can someone modify data in transit?
+    # TAMPERING
     # -----------------------------------------------------------------------
-    if not flow.is_encrypted:
-        likelihood = min(zone_risk, 5)
+    if not flow.is_encrypted and (is_public_exposure or flow.protocol == "http"):
+        likelihood = 4 if is_public_exposure else min(zone_risk, 4)
         impact = 4
-        protocol_info = f" over {flow.protocol.upper()}" if flow.protocol != "unknown" else ""
         threats.append(Threat(
             id=_threat_id(StrideCategory.TAMPERING, f"Unencrypted flow: {flow.label}", boundary),
             stride_category=StrideCategory.TAMPERING,
             title=f"Unencrypted traffic: {src.name} -> {dst.name}",
             severity=_risk_score(likelihood, impact),
-            evidence=[f"{flow.label}{protocol_info} is not encrypted"],
+            evidence=[f"{flow.label} uses plaintext {flow.protocol.upper()}"],
             boundary=boundary,
-            explanation=(
-                f"Data flowing from {src.name} to {dst.name} crosses from "
-                f"{src.trust_zone.value} to {dst.trust_zone.value} without encryption. "
-                f"An attacker on the network path could modify data in transit."
-            ),
-            mitigation="Enforce TLS 1.3 for all cross-boundary communications",
+            explanation=f"Data between {src.name} and {dst.name} is not encrypted, allowing tampering.",
+            mitigation="Enforce TLS 1.3.",
             affected_components=affected,
             likelihood=likelihood,
             impact=impact,
         ))
 
     # -----------------------------------------------------------------------
-    # INFORMATION DISCLOSURE — Can someone read data in transit?
+    # INFORMATION DISCLOSURE
     # -----------------------------------------------------------------------
     if not flow.is_encrypted:
-        likelihood = min(zone_risk + 1, 5)
-        # Higher impact if sensitive data classification
-        impact = 5 if flow.data_classification in (
-            "authentication_data", "payment_data", "pii", "persistent_data"
-        ) else 3
+        likelihood = 5 if is_public_exposure else min(zone_risk + 1, 4)
+        impact = 5 if flow.data_classification in ("authentication_data", "payment_data", "pii", "persistent_data") else 3
+        
+        # Downgrade if it's just public traffic to an API Gateway/LoadBalancer
+        if is_public_exposure and dst.type in (ComponentType.API_GATEWAY, ComponentType.LOAD_BALANCER) and impact < 5:
+            likelihood = 3
         threats.append(Threat(
             id=_threat_id(StrideCategory.INFORMATION_DISCLOSURE, f"Plaintext data: {flow.label}", boundary),
             stride_category=StrideCategory.INFORMATION_DISCLOSURE,
@@ -222,90 +224,83 @@ def _analyze_flow(
             severity=_risk_score(likelihood, impact),
             evidence=[f"{flow.label} transmits data without encryption"],
             boundary=boundary,
-            explanation=(
-                f"Data from {src.name} to {dst.name} traverses "
-                f"{src.trust_zone.value} to {dst.trust_zone.value} in plaintext. "
-                f"Sensitive information could be intercepted by network observers."
-            ),
-            mitigation="Enable TLS 1.3 and enforce HTTPS-only communication",
+            explanation=f"Sensitive information could be intercepted by network observers.",
+            mitigation="Enable TLS 1.3.",
             affected_components=affected,
             likelihood=likelihood,
             impact=impact,
         ))
 
     # -----------------------------------------------------------------------
-    # REPUDIATION — Is there audit logging?
+    # REPUDIATION
     # -----------------------------------------------------------------------
-    # We can't directly observe logging, but cross-boundary flows should be logged
-    if zone_risk >= 3:
+    has_logging_disabled = env_lower.get("logging_disabled") in ("true", "1", "yes")
+    if has_logging_disabled:
         threats.append(Threat(
-            id=_threat_id(StrideCategory.REPUDIATION, f"Cross-boundary audit: {flow.label}", boundary),
+            id=_threat_id(StrideCategory.REPUDIATION, f"Logging disabled: {dst.name}", boundary),
             stride_category=StrideCategory.REPUDIATION,
-            title=f"Missing audit trail: {src.name} -> {dst.name}",
-            severity=_risk_score(2, 3),
-            evidence=[f"Cross-boundary flow {flow.label} crosses a high-risk boundary"],
+            title=f"Audit logging disabled: {dst.name}",
+            severity=_risk_score(3, 3),
+            evidence=["LOGGING_DISABLED=true found in environment"],
             boundary=boundary,
-            explanation=(
-                f"Traffic crossing from {src.trust_zone.value} to {dst.trust_zone.value} "
-                f"should be logged for audit and forensics. Without logging, malicious "
-                f"actions cannot be traced back to their source."
-            ),
-            mitigation="Implement centralized logging with correlation IDs for all cross-boundary traffic",
-            affected_components=affected,
-            likelihood=2,
+            explanation=f"Audit logging is explicitly disabled for {dst.name}.",
+            mitigation="Enable centralized structured logging.",
+            affected_components=[dst.name],
+            likelihood=3,
             impact=3,
         ))
 
     # -----------------------------------------------------------------------
-    # DENIAL OF SERVICE — Can the destination be overwhelmed?
+    # DENIAL OF SERVICE
     # -----------------------------------------------------------------------
-    if src.trust_zone in (TrustZone.PUBLIC_INTERNET, TrustZone.DMZ):
-        likelihood = 4 if src.trust_zone == TrustZone.PUBLIC_INTERNET else 3
-        impact = 4 if dst.type in (ComponentType.DATABASE, ComponentType.SERVICE) else 3
+    replicas = dst.properties.get("replicas", 1)
+    if is_public_exposure and replicas == 1:
+        likelihood = 3
+        impact = 3
         threats.append(Threat(
-            id=_threat_id(StrideCategory.DENIAL_OF_SERVICE, f"Public exposure: {dst.name}", boundary),
+            id=_threat_id(StrideCategory.DENIAL_OF_SERVICE, f"Single replica: {dst.name}", boundary),
             stride_category=StrideCategory.DENIAL_OF_SERVICE,
-            title=f"Denial of service risk: {dst.name}",
+            title=f"Availability concern: {dst.name}",
             severity=_risk_score(likelihood, impact),
-            evidence=[f"{dst.name} receives traffic from {src.trust_zone.value}"],
+            evidence=[f"{dst.name} is exposed publicly with only 1 replica"],
             boundary=boundary,
-            explanation=(
-                f"{dst.name} in {dst.trust_zone.value} is reachable from "
-                f"{src.trust_zone.value}. Without rate limiting and circuit breakers, "
-                f"it could be overwhelmed by excessive requests."
-            ),
-            mitigation="Implement rate limiting, circuit breakers, and auto-scaling",
+            explanation=f"{dst.name} has no high availability and is exposed to the public.",
+            mitigation="Increase replicas and configure horizontal autoscaling.",
             affected_components=[dst.name],
             likelihood=likelihood,
             impact=impact,
         ))
 
     # -----------------------------------------------------------------------
-    # ELEVATION OF PRIVILEGE — Can access be escalated?
+    # EXTERNAL EXPOSURE OF SENSITIVE ZONE
     # -----------------------------------------------------------------------
     if dst.trust_zone in (TrustZone.ADMIN_ZONE, TrustZone.PCI_ZONE, TrustZone.DATABASE_TIER):
-        if src.trust_zone in (TrustZone.PUBLIC_INTERNET, TrustZone.DMZ, TrustZone.INTERNAL_SERVICES):
-            likelihood = zone_risk
-            impact = 5
+        if is_public_exposure and not flow.is_authenticated:
             threats.append(Threat(
-                id=_threat_id(StrideCategory.ELEVATION_OF_PRIVILEGE, f"Zone escalation: {flow.label}", boundary),
-                stride_category=StrideCategory.ELEVATION_OF_PRIVILEGE,
-                title=f"Privilege escalation path: {src.name} -> {dst.name}",
-                severity=_risk_score(likelihood, impact),
-                evidence=[
-                    f"{src.name} ({src.trust_zone.value}) can reach "
-                    f"{dst.name} ({dst.trust_zone.value})"
-                ],
+                id=_threat_id(StrideCategory.INFORMATION_DISCLOSURE, f"External exposure: {dst.name}", boundary),
+                stride_category=StrideCategory.INFORMATION_DISCLOSURE,
+                title=f"External exposure of sensitive zone: {dst.name}",
+                severity=Severity.CRITICAL,
+                evidence=[f"Unauthenticated public path to {dst.trust_zone.value}"],
                 boundary=boundary,
-                explanation=(
-                    f"A path exists from {src.trust_zone.value} to the sensitive "
-                    f"{dst.trust_zone.value} zone. If {src.name} is compromised, "
-                    f"an attacker could escalate access to {dst.name}."
-                ),
-                mitigation="Enforce strict RBAC, network segmentation, and least-privilege access",
+                explanation=f"A direct unauthenticated path exists to a highly sensitive zone.",
+                mitigation="Segment the network and enforce strict authentication.",
                 affected_components=affected,
-                likelihood=likelihood,
-                impact=impact,
+                likelihood=5,
+                impact=5,
+            ))
+            threats.append(Threat(
+                id=_threat_id(StrideCategory.TAMPERING, f"External exposure: {dst.name}", boundary),
+                stride_category=StrideCategory.TAMPERING,
+                title=f"External exposure of sensitive zone: {dst.name}",
+                severity=Severity.CRITICAL,
+                evidence=[f"Unauthenticated public path to {dst.trust_zone.value}"],
+                boundary=boundary,
+                explanation=f"A direct unauthenticated path exists to a highly sensitive zone.",
+                mitigation="Segment the network and enforce strict authentication.",
+                affected_components=affected,
+                likelihood=5,
+                impact=5,
             ))
 
     return threats
@@ -315,6 +310,9 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
     """Generate threats from component-level issues."""
     threats: list[Threat] = []
     boundary = f"{comp.trust_zone.value}"
+    
+    is_public = comp.trust_zone in (TrustZone.PUBLIC_INTERNET, TrustZone.DMZ)
+    properties_str = str(comp.properties).lower()
 
     # Privileged container
     if comp.properties.get("privileged"):
@@ -333,6 +331,7 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
             affected_components=[comp.name],
             likelihood=4,
             impact=5,
+            confidence=0.98,
         ))
 
     # Host networking
@@ -372,27 +371,75 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
             affected_components=[comp.name],
             likelihood=4,
             impact=4,
+            confidence=0.90,
         ))
 
-    # Database exposed to public
-    if comp.type == ComponentType.DATABASE:
-        if comp.trust_zone in (TrustZone.PUBLIC_INTERNET, TrustZone.DMZ):
+    # POSTGRES DETECTION
+    if comp.type == ComponentType.DATABASE or "postgres" in comp.name.lower():
+        if 5432 in comp.exposed_ports or "5432" in properties_str or "0.0.0.0/0" in properties_str or is_public:
             threats.append(Threat(
                 id=_threat_id(StrideCategory.INFORMATION_DISCLOSURE, f"Public DB: {comp.name}", boundary),
                 stride_category=StrideCategory.INFORMATION_DISCLOSURE,
                 title=f"Publicly accessible database: {comp.name}",
                 severity=Severity.CRITICAL,
-                evidence=[f"{comp.name} (database) is in {comp.trust_zone.value}"],
+                evidence=[f"5432 exposed or binds to 0.0.0.0/0"],
                 boundary=boundary,
-                explanation=(
-                    f"Database {comp.name} is accessible from {comp.trust_zone.value}. "
-                    f"Databases should never be directly reachable from untrusted zones."
-                ),
-                mitigation="Move database to private subnet; access only through application tier",
+                explanation="Databases should never be directly reachable from untrusted zones.",
+                mitigation="Move database to private subnet.",
                 affected_components=[comp.name],
                 likelihood=5,
                 impact=5,
             ))
+
+    # REDIS DETECTION
+    if comp.type == ComponentType.CACHE or "redis" in comp.name.lower():
+        if 6379 in comp.exposed_ports or "6379" in properties_str or "0.0.0.0/0" in properties_str or is_public:
+            threats.append(Threat(
+                id=_threat_id(StrideCategory.INFORMATION_DISCLOSURE, f"Public Cache: {comp.name}", boundary),
+                stride_category=StrideCategory.INFORMATION_DISCLOSURE,
+                title=f"Publicly accessible cache: {comp.name}",
+                severity=Severity.CRITICAL,
+                evidence=[f"6379 exposed or binds to 0.0.0.0/0"],
+                boundary=boundary,
+                explanation="Cache stores session or temporary data and should not be public.",
+                mitigation="Ensure Redis is only bound to localhost or internal network.",
+                affected_components=[comp.name],
+                likelihood=5,
+                impact=5,
+            ))
+
+    # LOADBALANCER DETECTION
+    if "loadbalancer" in properties_str or comp.type == ComponentType.LOAD_BALANCER:
+        if comp.type not in (ComponentType.DATABASE, ComponentType.CACHE):
+            threats.append(Threat(
+                id=_threat_id(StrideCategory.INFORMATION_DISCLOSURE, f"LB Exposure: {comp.name}", boundary),
+                stride_category=StrideCategory.INFORMATION_DISCLOSURE,
+                title=f"External service exposure",
+                severity=Severity.HIGH,
+                evidence=[f"Service type = LoadBalancer"],
+                boundary=boundary,
+                explanation=f"{comp.name} is exposed to the internet via a LoadBalancer.",
+                mitigation="Ensure exposure is intended and restrict CIDR blocks if possible.",
+                affected_components=[comp.name],
+                likelihood=4,
+                impact=3,
+            ))
+
+    # NETWORK SEGMENTATION
+    if comp.trust_zone == TrustZone.DMZ and comp.type in (ComponentType.DATABASE, ComponentType.CACHE):
+        threats.append(Threat(
+            id=_threat_id(StrideCategory.INFORMATION_DISCLOSURE, f"Flat Network: {comp.name}", boundary),
+            stride_category=StrideCategory.INFORMATION_DISCLOSURE,
+            title=f"Missing network segmentation: {comp.name}",
+            severity=Severity.MEDIUM,
+            evidence=[f"{comp.name} ({comp.type.value}) is in the DMZ with public services"],
+            boundary=boundary,
+            explanation="Sensitive assets share trust zones with externally facing services.",
+            mitigation="Implement proper network tiers.",
+            affected_components=[comp.name],
+            likelihood=3,
+            impact=4,
+        ))
 
     # Overly permissive IAM
     if comp.properties.get("overly_permissive_iam"):
@@ -411,6 +458,107 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
             affected_components=[comp.name],
             likelihood=4,
             impact=5,
+            confidence=0.98,
+        ))
+
+    # OBSERVABILITY (Elasticsearch) DETECTION
+    if comp.type == ComponentType.OBSERVABILITY or "elastic" in comp.name.lower():
+        if 9200 in comp.exposed_ports or "9200" in properties_str or "0.0.0.0/0" in properties_str or is_public:
+            threats.append(Threat(
+                id=_threat_id(StrideCategory.INFORMATION_DISCLOSURE, f"Public Search: {comp.name}", boundary),
+                stride_category=StrideCategory.INFORMATION_DISCLOSURE,
+                title=f"Public search cluster",
+                severity=Severity.HIGH,
+                evidence=[f"9200 exposed or binds to 0.0.0.0/0"],
+                boundary=boundary,
+                explanation="Search clusters contain sensitive telemetry and should not be public.",
+                mitigation="Ensure cluster is only bound to internal network.",
+                affected_components=[comp.name],
+                likelihood=4,
+                impact=5,
+            ))
+
+    # QUEUE (RabbitMQ) DETECTION
+    if comp.type == ComponentType.QUEUE or "rabbit" in comp.name.lower():
+        if 5672 in comp.exposed_ports or "5672" in properties_str or "0.0.0.0/0" in properties_str or is_public:
+            threats.append(Threat(
+                id=_threat_id(StrideCategory.INFORMATION_DISCLOSURE, f"Public Queue: {comp.name}", boundary),
+                stride_category=StrideCategory.INFORMATION_DISCLOSURE,
+                title=f"Public message broker",
+                severity=Severity.MEDIUM,
+                evidence=[f"5672 exposed or binds to 0.0.0.0/0"],
+                boundary=boundary,
+                explanation="Message brokers should not be public.",
+                mitigation="Ensure broker is only bound to internal network.",
+                affected_components=[comp.name],
+                likelihood=3,
+                impact=4,
+            ))
+
+    # Kubernetes: Run as Root
+    if comp.properties.get("run_as_root"):
+        threats.append(Threat(
+            id=_threat_id(StrideCategory.ELEVATION_OF_PRIVILEGE, f"Root User: {comp.name}", boundary),
+            stride_category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+            title=f"Container running as root",
+            severity=Severity.CRITICAL,
+            evidence=[f"{comp.name} has runAsUser=0"],
+            boundary=boundary,
+            explanation=f"Running as root gives the container full permissions on the host if it escapes.",
+            mitigation="Configure runAsNonRoot: true.",
+            affected_components=[comp.name],
+            likelihood=5,
+            impact=5,
+        ))
+
+    # Kubernetes: Host Path
+    if comp.properties.get("host_path_root"):
+        threats.append(Threat(
+            id=_threat_id(StrideCategory.ELEVATION_OF_PRIVILEGE, f"Host Path: {comp.name}", boundary),
+            stride_category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+            title=f"Host filesystem mounted",
+            severity=Severity.CRITICAL,
+            evidence=[f"{comp.name} mounts hostPath /"],
+            boundary=boundary,
+            explanation=f"Mounting the root host filesystem allows the container to overwrite host files.",
+            mitigation="Remove hostPath volumes.",
+            affected_components=[comp.name],
+            likelihood=5,
+            impact=5,
+            confidence=0.98,
+        ))
+
+    # Kubernetes: NodePort
+    if comp.properties.get("nodeport"):
+        threats.append(Threat(
+            id=_threat_id(StrideCategory.INFORMATION_DISCLOSURE, f"NodePort: {comp.name}", boundary),
+            stride_category=StrideCategory.INFORMATION_DISCLOSURE,
+            title=f"External service exposure",
+            severity=Severity.HIGH,
+            evidence=[f"{comp.name} is exposed via NodePort"],
+            boundary=boundary,
+            explanation=f"NodePort exposes the service on every node's IP.",
+            mitigation="Use ClusterIP and expose via an Ingress.",
+            affected_components=[comp.name],
+            likelihood=4,
+            impact=4,
+            confidence=0.95,
+        ))
+
+    # Kubernetes: No Resource Limits
+    if comp.properties.get("no_resource_limits"):
+        threats.append(Threat(
+            id=_threat_id(StrideCategory.DENIAL_OF_SERVICE, f"No Limits: {comp.name}", boundary),
+            stride_category=StrideCategory.DENIAL_OF_SERVICE,
+            title=f"No resource limits defined",
+            severity=Severity.MEDIUM,
+            evidence=[f"{comp.name} lacks CPU/Memory limits"],
+            boundary=boundary,
+            explanation=f"A compromised or buggy container could consume all host resources.",
+            mitigation="Define resource limits and requests.",
+            affected_components=[comp.name],
+            likelihood=3,
+            impact=3,
         ))
 
     # Public storage
@@ -418,7 +566,7 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
         threats.append(Threat(
             id=_threat_id(StrideCategory.INFORMATION_DISCLOSURE, f"Public storage: {comp.name}", boundary),
             stride_category=StrideCategory.INFORMATION_DISCLOSURE,
-            title=f"Publicly accessible storage: {comp.name}",
+            title=f"Public object storage",
             severity=Severity.HIGH,
             evidence=[f"{comp.name} has public access enabled"],
             boundary=boundary,
@@ -431,26 +579,6 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
             likelihood=4,
             impact=4,
         ))
-
-    # Missing encryption at rest for databases
-    if comp.type == ComponentType.DATABASE and not comp.properties.get("encrypted"):
-        if comp.properties.get("has_encryption_config") is False:
-            threats.append(Threat(
-                id=_threat_id(StrideCategory.INFORMATION_DISCLOSURE, f"No encryption: {comp.name}", boundary),
-                stride_category=StrideCategory.INFORMATION_DISCLOSURE,
-                title=f"Missing encryption at rest: {comp.name}",
-                severity=Severity.HIGH,
-                evidence=[f"{comp.name} does not have encryption at rest configured"],
-                boundary=boundary,
-                explanation=(
-                    f"Database {comp.name} stores data without encryption at rest. "
-                    f"Physical access to storage media could expose all stored data."
-                ),
-                mitigation="Enable storage encryption with managed keys (KMS/AES-256)",
-                affected_components=[comp.name],
-                likelihood=2,
-                impact=5,
-            ))
 
     return threats
 
@@ -491,6 +619,7 @@ def _analyze_asset(
             affected_components=[comp.name],
             likelihood=3,
             impact=sensitivity,
+            confidence=0.85,
         ))
 
     # PII in third-party zone

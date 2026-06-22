@@ -38,7 +38,7 @@ class AIEngine:
 
     def __init__(self, api_key: Optional[str] = None, enabled: bool = True):
         self._client = None
-        self._model = "gemini-2.0-flash"
+        self._model = "gemini-flash-latest"
         self._enabled = enabled
 
         if not enabled:
@@ -90,6 +90,82 @@ class AIEngine:
 
         return enhanced
 
+    def infer_attack_chains(self, threats: list[Threat], architecture: Architecture) -> list[Threat]:
+        """Correlate deterministic threats into attack chains."""
+        if not self.is_available or not threats:
+            return threats
+
+        arch_context = self._build_architecture_context(architecture)
+        threats_desc = []
+        for i, t in enumerate(threats):
+            threats_desc.append(f"- [{t.severity.value}] {t.title} ({t.boundary})")
+            
+        prompt = f"""You are a Product Security Engineer.
+        
+{arch_context}
+
+The following deterministic threats were found:
+{chr(10).join(threats_desc)}
+
+Identify 1-3 attack chains by correlating these threats. For example, a public unauthenticated API leading to a privileged container with root access.
+Respond in JSON format:
+{{
+  "chains": [
+    {{
+      "title": "Attack Path: ...",
+      "severity": "critical",
+      "explanation": "...",
+      "mitigation": "...",
+      "affected_components": ["comp1", "comp2"],
+      "confidence": 0.8
+    }}
+  ]
+}}"""
+
+        response = self._generate(prompt)
+        if not response:
+            return threats
+
+        try:
+            json_str = response
+            if "```json" in json_str:
+                json_str = json_str.split("```json")[1].split("```")[0]
+            elif "```" in json_str:
+                json_str = json_str.split("```")[1].split("```")[0]
+
+            data = json.loads(json_str.strip())
+            
+            # Since we can't easily import _threat_id here without circular dependency 
+            # or it's not defined in ai_engine, we'll just hash the title.
+            import hashlib
+            
+            for chain in data.get("chains", []):
+                t_id = hashlib.sha256(f"chain:{chain['title']}".encode()).hexdigest()[:12]
+                try:
+                    severity = Severity(chain["severity"].lower())
+                except ValueError:
+                    severity = Severity.HIGH
+                    
+                threats.append(Threat(
+                    id=t_id,
+                    stride_category=StrideCategory.ELEVATION_OF_PRIVILEGE,
+                    title=chain["title"],
+                    severity=severity,
+                    evidence=["Correlated from deterministic findings"],
+                    boundary="Architecture",
+                    explanation=chain["explanation"],
+                    mitigation=chain["mitigation"],
+                    affected_components=chain.get("affected_components", []),
+                    likelihood=4,
+                    impact=5,
+                    source="AI Correlation",
+                    confidence=0.70
+                ))
+        except Exception as e:
+            logger.warning(f"Failed to parse attack chains: {e}")
+            
+        return threats
+
     def prioritize_threats(self, threats: list[Threat]) -> list[Threat]:
         """Use AI to prioritize threats by production impact likelihood."""
         if not self.is_available or len(threats) <= 3:
@@ -117,7 +193,7 @@ class AIEngine:
 
     def _generate(self, prompt: str) -> Optional[str]:
         """Call the Gemini API and return the response text."""
-        if not self._client:
+        if not self._client or not self._enabled:
             return None
 
         max_retries = 3
@@ -136,6 +212,11 @@ class AIEngine:
                         logger.warning(f"AI rate limit hit (429). Retrying in {delay}s...")
                         time.sleep(delay)
                         continue
+                elif "503" in err_str or "UNAVAILABLE" in err_str:
+                    logger.warning("Gemini API is unavailable due to high demand (503). Disabling AI augmentation for this run and falling back to deterministic rules.")
+                    self._enabled = False
+                    return None
+                    
                 logger.warning(f"AI generation failed: {e}")
                 return None
         return None

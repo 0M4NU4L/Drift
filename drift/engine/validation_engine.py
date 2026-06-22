@@ -45,6 +45,9 @@ def validate_threats(threats: list[Threat], arch: Architecture) -> list[Threat]:
 
 def _is_sane(threat: Threat, arch: Architecture) -> bool:
     """Reject impossible threats based on architecture state."""
+    if not threat.evidence:
+        return False
+
     # If a threat claims unencrypted traffic, verify the flow exists and is unencrypted
     if threat.stride_category == "Tampering" and "Unencrypted" in threat.title:
         # Find the affected flow if possible
@@ -62,29 +65,35 @@ def _is_sane(threat: Threat, arch: Architecture) -> bool:
 
 def _calculate_confidence(threat: Threat) -> float:
     """Calculate a 0.0 to 1.0 confidence score based on the quality of evidence."""
-    base_confidence = 0.70
     evidence_count = len(threat.evidence)
     
-    # Scale based on quantity of evidence
-    if evidence_count == 1:
-        base_confidence = 0.85
-    elif evidence_count == 2:
-        base_confidence = 0.90
-    elif evidence_count >= 3:
-        base_confidence = 0.95
+    if evidence_count == 0:
+        return 0.0
+    if evidence_count >= 2:
+        return 0.95
         
+    # 1 evidence string
+    base_confidence = 0.80
+    
     # Scale based on quality/hardness of evidence
     hard_evidence_keywords = [
         "ALLOW_HTTP=true", 
         "wildcard (*)", 
         "privileged mode",
         "has public access enabled",
-        "transmits data without encryption"
+        "transmits data without encryption",
+        "NO_AUTH is enabled",
+        "LOGGING_DISABLED=true",
+        "0.0.0.0/0",
+        "public address",
+        "port 6379",
+        "port 5432"
     ]
     
     for ev in threat.evidence:
         if any(keyword in ev for keyword in hard_evidence_keywords):
-            base_confidence += 0.05
+            base_confidence = 0.90
+            break
             
     return min(1.0, round(base_confidence, 2))
 

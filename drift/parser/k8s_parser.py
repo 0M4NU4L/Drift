@@ -38,8 +38,14 @@ def parse(filepath: str) -> Architecture:
         metadata = doc.get("metadata", {})
         name = metadata.get("name", "unknown")
         
-        if kind in ("Deployment", "StatefulSet", "DaemonSet"):
-            spec = doc.get("spec", {}).get("template", {}).get("spec", {})
+        if kind in ("Deployment", "StatefulSet", "DaemonSet", "Pod", "Job", "CronJob"):
+            if kind == "Pod":
+                spec = doc.get("spec", {})
+            elif kind == "CronJob":
+                spec = doc.get("spec", {}).get("jobTemplate", {}).get("spec", {}).get("template", {}).get("spec", {})
+            else:
+                spec = doc.get("spec", {}).get("template", {}).get("spec", {})
+                
             containers = spec.get("containers", [])
             
             env_dict = {}
@@ -50,13 +56,29 @@ def parse(filepath: str) -> Architecture:
             if spec.get("hostNetwork"):
                 properties["host_network"] = True
                 
+            pod_sec_ctx = spec.get("securityContext", {})
+            if pod_sec_ctx.get("runAsUser") == 0:
+                properties["run_as_root"] = True
+                
+            volumes = spec.get("volumes", [])
+            for vol in volumes:
+                if vol.get("hostPath", {}).get("path") == "/":
+                    properties["host_path_root"] = True
+                
             for container in containers:
                 image_name = container.get("image", "")
                 
-                # Check privileged
+                # Check privileged & root
                 sec_ctx = container.get("securityContext", {})
                 if sec_ctx.get("privileged"):
                     properties["privileged"] = True
+                if sec_ctx.get("runAsUser") == 0:
+                    properties["run_as_root"] = True
+                    
+                # Check limits
+                res = container.get("resources")
+                if not res:
+                    properties["no_resource_limits"] = True
                     
                 # Extract env
                 env = container.get("env", [])
@@ -105,13 +127,15 @@ def parse(filepath: str) -> Architecture:
                 )
             )
 
-    # Post-process services to link flows and update zones
+    # Post-process services to link flows and update properties
     for svc in services:
         if svc["type"] in ("LoadBalancer", "NodePort"):
-            # Find matching component and update trust zone
             for comp in arch.components:
                 # Simplistic matching: if component name matches any selector value
                 if any(v in comp.name for v in svc["selector"].values()):
-                    comp.trust_zone = TrustZone.DMZ
+                    if svc["type"] == "NodePort":
+                        comp.properties["nodeport"] = True
+                    elif svc["type"] == "LoadBalancer":
+                        comp.properties["loadbalancer"] = True
                     
     return arch

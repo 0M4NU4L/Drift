@@ -37,6 +37,7 @@ _TYPE_PATTERNS: list[tuple[re.Pattern, ComponentType]] = [
     (re.compile(r"(lb|load.?balancer|alb|elb|nlb)", re.I), ComponentType.LOAD_BALANCER),
     (re.compile(r"(cloudfront|cdn|akamai|fastly)", re.I), ComponentType.CDN),
     (re.compile(r"(proxy|sidecar)", re.I), ComponentType.PROXY),
+    (re.compile(r"(elasticsearch|kibana|grafana|prometheus|datadog|splunk|observability|logstash)", re.I), ComponentType.OBSERVABILITY),
 ]
 
 # Patterns indicating sensitive environment variables
@@ -130,6 +131,17 @@ def _classify_components(components: list[Component]) -> list[Component]:
             if pattern.search(search_text):
                 inferred_type = comp_type
                 break
+                
+        # Port-based fallback
+        if inferred_type == ComponentType.SERVICE:
+            if 9200 in comp.exposed_ports:
+                inferred_type = ComponentType.OBSERVABILITY
+            elif 5672 in comp.exposed_ports:
+                inferred_type = ComponentType.QUEUE
+            elif 6379 in comp.exposed_ports:
+                inferred_type = ComponentType.CACHE
+            elif 5432 in comp.exposed_ports:
+                inferred_type = ComponentType.DATABASE
 
         result.append(comp.model_copy(update={"type": inferred_type}))
     return result
@@ -142,11 +154,6 @@ def _assign_trust_zones(
     """Assign trust zones to components based on their properties."""
     result = []
     for comp in components:
-        # If already explicitly set (not default), keep it
-        if comp.trust_zone != TrustZone.INTERNAL_SERVICES:
-            result.append(comp)
-            continue
-
         zone = _infer_zone(comp)
         result.append(comp.model_copy(update={"trust_zone": zone}))
     return result
@@ -154,37 +161,37 @@ def _assign_trust_zones(
 
 def _infer_zone(comp: Component) -> TrustZone:
     """Infer the trust zone for a single component."""
-    # Databases always go to Database Tier
-    if comp.type in (ComponentType.DATABASE,):
+    name_lower = comp.name.lower()
+
+    # Internet/external always go to PUBLIC_INTERNET
+    if any(term in name_lower for term in ("internet", "external", "client", "public", "cdn")):
+        return TrustZone.PUBLIC_INTERNET
+
+    # Databases and caches always go to Database Tier
+    if comp.type in (ComponentType.DATABASE, ComponentType.CACHE):
         return TrustZone.DATABASE_TIER
 
-    # Cache often sits with internal services but can be database tier
-    if comp.type == ComponentType.CACHE:
-        return TrustZone.DATABASE_TIER
+    # Storage
+    if comp.type == ComponentType.STORAGE:
+        return TrustZone.STORAGE_TIER
+
+    # Messaging
+    if comp.type == ComponentType.QUEUE:
+        return TrustZone.MESSAGING_TIER
+
+    # Observability
+    if comp.type == ComponentType.OBSERVABILITY:
+        return TrustZone.OBSERVABILITY_TIER
 
     # Third-party services
     if comp.type == ComponentType.THIRD_PARTY:
         return TrustZone.THIRD_PARTY
 
-    # CDN and public load balancers face the internet
-    if comp.type in (ComponentType.CDN,):
-        return TrustZone.PUBLIC_INTERNET
-
-    # Check if component has publicly exposed ports
-    has_public_ports = any(p in _PUBLIC_PORTS for p in comp.exposed_ports)
-
-    # API Gateways and Load Balancers with public ports -> DMZ
+    # API Gateways and Load Balancers face the internet and sit in the DMZ
     if comp.type in (ComponentType.API_GATEWAY, ComponentType.LOAD_BALANCER):
-        if has_public_ports:
-            return TrustZone.DMZ
-        return TrustZone.INTERNAL_SERVICES
-
-    # Services with public ports -> DMZ
-    if has_public_ports and comp.type == ComponentType.SERVICE:
         return TrustZone.DMZ
 
     # Payment-related services -> PCI Zone
-    name_lower = comp.name.lower()
     if any(term in name_lower for term in ("payment", "billing", "stripe", "card")):
         has_payment_env = any(
             any(term in k.lower() for term in ("stripe", "payment", "card"))

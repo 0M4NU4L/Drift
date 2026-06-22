@@ -124,12 +124,19 @@ def _run_analysis(
         console.print("[bold cyan]>[/bold cyan] AI augmentation...", highlight=False)
         ai = AIEngine()
         if ai.is_available:
-            threats = ai.enhance_threats(threats, architecture)
-            threats = ai.prioritize_threats(threats)
-            ai_enhanced = True
-            console.print("  [green]OK[/green] Threats enhanced with AI explanations")
+            initial_count = len(threats)
+            
+            # We now use AI to generate attack chains instead of individual explanations
+            threats = ai.infer_attack_chains(threats, architecture)
+            
+            if len(threats) > initial_count:
+                ai_enhanced = True
+                enhanced_count = len(threats) - initial_count
+                console.print(f"  [green]OK[/green] {enhanced_count} attack chains inferred by AI")
+            else:
+                console.print("  [dim]AI unavailable or no chains inferred. Using deterministic analysis only.[/dim]")
         else:
-            console.print("  [dim]Skipped (no API key configured)[/dim]")
+            console.print("  [dim]Skipped (no API key configured or AI disabled)[/dim]")
 
     # Step 5: Compute delta against baseline
     baseline = load_baseline(str(target_path / ".drift" / "drift.lock"))
@@ -152,13 +159,20 @@ def analyze(
     target: Annotated[str, typer.Argument(help="Path to analyze (directory with infra files)")] = ".",
     no_ai: Annotated[bool, typer.Option("--no-ai", help="Skip AI augmentation")] = False,
     output: Annotated[str, typer.Option("--output", "-o", help="Output directory")] = ".",
+    format: Annotated[str, typer.Option("--format", help="Output format (console, sarif)")] = "console",
 ):
     """Analyze architecture and generate STRIDE threats."""
     from drift.report.rich_output import display_analysis
+    from drift.report.sarif import generate_sarif
 
     result = _run_analysis(target, no_ai=no_ai, output=output)
-    console.print()
-    display_analysis(result)
+    
+    if format.lower() == "sarif":
+        sarif_path = generate_sarif(result, output)
+        console.print(f"\n[bold green]OK[/bold green] SARIF report generated at [cyan]{sarif_path}[/cyan]")
+    else:
+        console.print()
+        display_analysis(result)
 
 
 @app.command()

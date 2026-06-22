@@ -70,8 +70,29 @@ def parse(filepath: str) -> Architecture:
         # S3
         elif res_type == "aws_s3_bucket":
             comp_type = ComponentType.STORAGE
-            if "acl = \"public-read\"" in block_content.replace(" ", ""):
+            content_no_space = block_content.replace(" ", "")
+            if 'acl="public-read"' in content_no_space:
                 properties["public_access"] = True
+            if "block_public_policy=false" in content_no_space or "restrict_public_buckets=false" in content_no_space:
+                properties["public_access"] = True
+                
+        elif res_type == "aws_s3_bucket_public_access_block":
+            content_no_space = block_content.replace(" ", "")
+            if "block_public_policy=false" in content_no_space or "restrict_public_buckets=false" in content_no_space:
+                # e.g., bucket = aws_s3_bucket.logs.id -> aws_s3_bucket.logs
+                match = re.search(r'bucket\s*=\s*(aws_s3_bucket\.[a-zA-Z0-9_-]+)', block_content)
+                if match:
+                    bucket_name = match.group(1)
+                    # We retroactively apply it if the component already exists
+                    for c in arch.components:
+                        if c.name == bucket_name:
+                            c.properties["public_access"] = True
+                    # In case the block is defined before the bucket, we could store it 
+                    # but simple ordering usually works if we process after. 
+                    # For a robust parser, we'd do a second pass, but this suffices for simple cases.
+                    properties["target_bucket"] = bucket_name
+                    properties["public_access"] = True
+                    comp_type = ComponentType.UNKNOWN
                 
         # Compute
         elif res_type in ("aws_instance", "aws_ecs_service"):
@@ -112,5 +133,19 @@ def parse(filepath: str) -> Architecture:
                     source="terraform",
                 )
             )
+
+    # Post-process to apply properties to targets
+    to_remove = []
+    for comp in arch.components:
+        if comp.properties.get("target_bucket"):
+            to_remove.append(comp)
+            target_name = comp.properties["target_bucket"]
+            for target_comp in arch.components:
+                if target_comp.name == target_name:
+                    if comp.properties.get("public_access"):
+                        target_comp.properties["public_access"] = True
+
+    # Remove the metadata components (like public access block) from the final architecture
+    arch.components = [c for c in arch.components if c not in to_remove]
 
     return arch

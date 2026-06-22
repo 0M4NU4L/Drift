@@ -31,6 +31,7 @@ class ComponentType(str, Enum):
     LOAD_BALANCER = "load_balancer"
     CDN = "cdn"
     PROXY = "proxy"
+    OBSERVABILITY = "observability"
     UNKNOWN = "unknown"
 
 
@@ -40,6 +41,9 @@ class TrustZone(str, Enum):
     DMZ = "DMZ"
     INTERNAL_SERVICES = "Internal Services"
     DATABASE_TIER = "Database Tier"
+    STORAGE_TIER = "Storage Tier"
+    MESSAGING_TIER = "Messaging Tier"
+    OBSERVABILITY_TIER = "Observability Tier"
     THIRD_PARTY = "Third-Party APIs"
     ADMIN_ZONE = "Admin Zone"
     PCI_ZONE = "PCI Zone"
@@ -155,6 +159,7 @@ class Threat(BaseModel):
     affected_components: list[str] = Field(default_factory=list)
     likelihood: int = Field(default=3, ge=1, le=5)
     impact: int = Field(default=3, ge=1, le=5)
+    source: str = "Rule Engine"
 
     @model_validator(mode='before')
     @classmethod
