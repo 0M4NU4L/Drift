@@ -138,23 +138,38 @@ class Asset(BaseModel):
     description: str = ""
 
 
+from pydantic import BaseModel, Field, model_validator
+from typing import Optional, Any
+
 class Threat(BaseModel):
     """A STRIDE threat with evidence and explainability."""
     id: str = ""
     stride_category: StrideCategory
     title: str
     severity: Severity
-    evidence: str
-    boundary: str  # "Zone A → Zone B"
+    evidence: list[str] = Field(default_factory=list)
+    confidence: float = 1.0
+    boundary: str  # "Zone A -> Zone B"
     explanation: str = ""
     mitigation: str = ""
     affected_components: list[str] = Field(default_factory=list)
     likelihood: int = Field(default=3, ge=1, le=5)
     impact: int = Field(default=3, ge=1, le=5)
 
+    @model_validator(mode='before')
+    @classmethod
+    def _migrate_evidence(cls, data: Any) -> Any:
+        """Backward compatibility for drift.lock files with string evidence."""
+        if isinstance(data, dict):
+            evidence = data.get('evidence')
+            if isinstance(evidence, str):
+                data['evidence'] = [evidence]
+        return data
+
     def model_post_init(self, __context: object) -> None:
         """Auto-generate threat ID from content if not provided."""
         if not self.id:
+            # We use the title, category, and boundary for deterministic ID.
             content = f"{self.stride_category.value}:{self.title}:{self.boundary}"
             self.id = hashlib.sha256(content.encode()).hexdigest()[:12]
 

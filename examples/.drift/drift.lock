@@ -1,6 +1,6 @@
 {
   "version": "1.0.0",
-  "timestamp": "2026-06-22T18:09:22.899574+00:00",
+  "timestamp": "2026-06-22T19:36:45.707461+00:00",
   "architecture": {
     "components": [
       {
@@ -306,8 +306,8 @@
         "zone_to": "Internal Services",
         "components": [
           "user-service",
-          "auth-service",
-          "nginx-gateway"
+          "nginx-gateway",
+          "auth-service"
         ],
         "description": "Data crosses from DMZ to Internal Services"
       },
@@ -316,8 +316,8 @@
         "zone_from": "Internal Services",
         "zone_to": "DMZ",
         "components": [
-          "postgres",
           "user-service",
+          "postgres",
           "auth-service"
         ],
         "description": "Data crosses from Internal Services to DMZ"
@@ -337,8 +337,8 @@
         "zone_from": "Public Internet",
         "zone_to": "DMZ",
         "components": [
-          "cdn",
-          "nginx-gateway"
+          "nginx-gateway",
+          "cdn"
         ],
         "description": "Data crosses from Public Internet to DMZ"
       },
@@ -426,7 +426,10 @@
       "stride_category": "Spoofing",
       "title": "Unauthenticated flow: nginx-gateway -> auth-service",
       "severity": "medium",
-      "evidence": "nginx-gateway → auth-service has no authentication mechanism",
+      "evidence": [
+        "nginx-gateway → auth-service has no authentication mechanism"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ -> Internal Services",
       "explanation": "Traffic from nginx-gateway (DMZ) to auth-service (Internal Services) lacks authentication. An attacker could impersonate nginx-gateway to access auth-service.",
       "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
@@ -442,7 +445,10 @@
       "stride_category": "Tampering",
       "title": "Unencrypted traffic: nginx-gateway -> auth-service",
       "severity": "high",
-      "evidence": "nginx-gateway → auth-service is not encrypted",
+      "evidence": [
+        "nginx-gateway → auth-service is not encrypted"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ -> Internal Services",
       "explanation": "Data flowing from nginx-gateway to auth-service crosses from DMZ to Internal Services without encryption. An attacker on the network path could modify data in transit.",
       "mitigation": "Enforce TLS 1.3 for all cross-boundary communications",
@@ -458,7 +464,10 @@
       "stride_category": "Information Disclosure",
       "title": "Plaintext data exposure: nginx-gateway -> auth-service",
       "severity": "critical",
-      "evidence": "nginx-gateway → auth-service transmits data without encryption",
+      "evidence": [
+        "nginx-gateway → auth-service transmits data without encryption"
+      ],
+      "confidence": 0.9,
       "boundary": "DMZ -> Internal Services",
       "explanation": "Data from nginx-gateway to auth-service traverses DMZ to Internal Services in plaintext. Sensitive information could be intercepted by network observers.",
       "mitigation": "Enable TLS 1.3 and enforce HTTPS-only communication",
@@ -474,7 +483,10 @@
       "stride_category": "Repudiation",
       "title": "Missing audit trail: nginx-gateway -> auth-service",
       "severity": "medium",
-      "evidence": "Cross-boundary flow nginx-gateway → auth-service crosses a high-risk boundary",
+      "evidence": [
+        "Cross-boundary flow nginx-gateway → auth-service crosses a high-risk boundary"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ -> Internal Services",
       "explanation": "Traffic crossing from DMZ to Internal Services should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
       "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
@@ -490,7 +502,10 @@
       "stride_category": "Denial of Service",
       "title": "Denial of service risk: auth-service",
       "severity": "high",
-      "evidence": "auth-service receives traffic from DMZ",
+      "evidence": [
+        "auth-service receives traffic from DMZ"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ -> Internal Services",
       "explanation": "auth-service in Internal Services is reachable from DMZ. Without rate limiting and circuit breakers, it could be overwhelmed by excessive requests.",
       "mitigation": "Implement rate limiting, circuit breakers, and auto-scaling",
@@ -505,7 +520,10 @@
       "stride_category": "Spoofing",
       "title": "Unauthenticated flow: nginx-gateway -> user-service",
       "severity": "medium",
-      "evidence": "nginx-gateway → user-service has no authentication mechanism",
+      "evidence": [
+        "nginx-gateway → user-service has no authentication mechanism"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ -> Internal Services",
       "explanation": "Traffic from nginx-gateway (DMZ) to user-service (Internal Services) lacks authentication. An attacker could impersonate nginx-gateway to access user-service.",
       "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
@@ -521,7 +539,10 @@
       "stride_category": "Tampering",
       "title": "Unencrypted traffic: nginx-gateway -> user-service",
       "severity": "high",
-      "evidence": "nginx-gateway → user-service is not encrypted",
+      "evidence": [
+        "nginx-gateway → user-service is not encrypted"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ -> Internal Services",
       "explanation": "Data flowing from nginx-gateway to user-service crosses from DMZ to Internal Services without encryption. An attacker on the network path could modify data in transit.",
       "mitigation": "Enforce TLS 1.3 for all cross-boundary communications",
@@ -537,7 +558,10 @@
       "stride_category": "Information Disclosure",
       "title": "Plaintext data exposure: nginx-gateway -> user-service",
       "severity": "high",
-      "evidence": "nginx-gateway → user-service transmits data without encryption",
+      "evidence": [
+        "nginx-gateway → user-service transmits data without encryption"
+      ],
+      "confidence": 0.9,
       "boundary": "DMZ -> Internal Services",
       "explanation": "Data from nginx-gateway to user-service traverses DMZ to Internal Services in plaintext. Sensitive information could be intercepted by network observers.",
       "mitigation": "Enable TLS 1.3 and enforce HTTPS-only communication",
@@ -553,7 +577,10 @@
       "stride_category": "Repudiation",
       "title": "Missing audit trail: nginx-gateway -> user-service",
       "severity": "medium",
-      "evidence": "Cross-boundary flow nginx-gateway → user-service crosses a high-risk boundary",
+      "evidence": [
+        "Cross-boundary flow nginx-gateway → user-service crosses a high-risk boundary"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ -> Internal Services",
       "explanation": "Traffic crossing from DMZ to Internal Services should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
       "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
@@ -569,7 +596,10 @@
       "stride_category": "Denial of Service",
       "title": "Denial of service risk: user-service",
       "severity": "high",
-      "evidence": "user-service receives traffic from DMZ",
+      "evidence": [
+        "user-service receives traffic from DMZ"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ -> Internal Services",
       "explanation": "user-service in Internal Services is reachable from DMZ. Without rate limiting and circuit breakers, it could be overwhelmed by excessive requests.",
       "mitigation": "Implement rate limiting, circuit breakers, and auto-scaling",
@@ -584,7 +614,10 @@
       "stride_category": "Spoofing",
       "title": "Unauthenticated flow: auth-service -> postgres",
       "severity": "high",
-      "evidence": "auth-service → postgres has no authentication mechanism",
+      "evidence": [
+        "auth-service → postgres has no authentication mechanism"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services -> DMZ",
       "explanation": "Traffic from auth-service (Internal Services) to postgres (DMZ) lacks authentication. An attacker could impersonate auth-service to access postgres.",
       "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
@@ -600,7 +633,10 @@
       "stride_category": "Tampering",
       "title": "Unencrypted traffic: auth-service -> postgres",
       "severity": "high",
-      "evidence": "auth-service → postgres is not encrypted",
+      "evidence": [
+        "auth-service → postgres is not encrypted"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services -> DMZ",
       "explanation": "Data flowing from auth-service to postgres crosses from Internal Services to DMZ without encryption. An attacker on the network path could modify data in transit.",
       "mitigation": "Enforce TLS 1.3 for all cross-boundary communications",
@@ -616,7 +652,10 @@
       "stride_category": "Information Disclosure",
       "title": "Plaintext data exposure: auth-service -> postgres",
       "severity": "critical",
-      "evidence": "auth-service → postgres transmits data without encryption",
+      "evidence": [
+        "auth-service → postgres transmits data without encryption"
+      ],
+      "confidence": 0.9,
       "boundary": "Internal Services -> DMZ",
       "explanation": "Data from auth-service to postgres traverses Internal Services to DMZ in plaintext. Sensitive information could be intercepted by network observers.",
       "mitigation": "Enable TLS 1.3 and enforce HTTPS-only communication",
@@ -632,7 +671,10 @@
       "stride_category": "Repudiation",
       "title": "Missing audit trail: auth-service -> postgres",
       "severity": "medium",
-      "evidence": "Cross-boundary flow auth-service → postgres crosses a high-risk boundary",
+      "evidence": [
+        "Cross-boundary flow auth-service → postgres crosses a high-risk boundary"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services -> DMZ",
       "explanation": "Traffic crossing from Internal Services to DMZ should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
       "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
@@ -648,7 +690,10 @@
       "stride_category": "Spoofing",
       "title": "Unauthenticated flow: auth-service -> redis",
       "severity": "medium",
-      "evidence": "auth-service → redis has no authentication mechanism",
+      "evidence": [
+        "auth-service → redis has no authentication mechanism"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services -> Database Tier",
       "explanation": "Traffic from auth-service (Internal Services) to redis (Database Tier) lacks authentication. An attacker could impersonate auth-service to access redis.",
       "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
@@ -664,7 +709,10 @@
       "stride_category": "Tampering",
       "title": "Unencrypted traffic: auth-service -> redis",
       "severity": "medium",
-      "evidence": "auth-service → redis is not encrypted",
+      "evidence": [
+        "auth-service → redis is not encrypted"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services -> Database Tier",
       "explanation": "Data flowing from auth-service to redis crosses from Internal Services to Database Tier without encryption. An attacker on the network path could modify data in transit.",
       "mitigation": "Enforce TLS 1.3 for all cross-boundary communications",
@@ -680,7 +728,10 @@
       "stride_category": "Information Disclosure",
       "title": "Plaintext data exposure: auth-service -> redis",
       "severity": "medium",
-      "evidence": "auth-service → redis transmits data without encryption",
+      "evidence": [
+        "auth-service → redis transmits data without encryption"
+      ],
+      "confidence": 0.9,
       "boundary": "Internal Services -> Database Tier",
       "explanation": "Data from auth-service to redis traverses Internal Services to Database Tier in plaintext. Sensitive information could be intercepted by network observers.",
       "mitigation": "Enable TLS 1.3 and enforce HTTPS-only communication",
@@ -695,8 +746,11 @@
       "id": "253c01cf226b",
       "stride_category": "Elevation of Privilege",
       "title": "Privilege escalation path: auth-service -> redis",
-      "severity": "medium",
-      "evidence": "auth-service (Internal Services) can reach redis (Database Tier)",
+      "severity": "high",
+      "evidence": [
+        "auth-service (Internal Services) can reach redis (Database Tier)"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services -> Database Tier",
       "explanation": "A path exists from Internal Services to the sensitive Database Tier zone. If auth-service is compromised, an attacker could escalate access to redis.",
       "mitigation": "Enforce strict RBAC, network segmentation, and least-privilege access",
@@ -712,7 +766,10 @@
       "stride_category": "Spoofing",
       "title": "Unauthenticated flow: user-service -> postgres",
       "severity": "high",
-      "evidence": "user-service → postgres has no authentication mechanism",
+      "evidence": [
+        "user-service → postgres has no authentication mechanism"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services -> DMZ",
       "explanation": "Traffic from user-service (Internal Services) to postgres (DMZ) lacks authentication. An attacker could impersonate user-service to access postgres.",
       "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
@@ -728,7 +785,10 @@
       "stride_category": "Tampering",
       "title": "Unencrypted traffic: user-service -> postgres",
       "severity": "high",
-      "evidence": "user-service → postgres is not encrypted",
+      "evidence": [
+        "user-service → postgres is not encrypted"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services -> DMZ",
       "explanation": "Data flowing from user-service to postgres crosses from Internal Services to DMZ without encryption. An attacker on the network path could modify data in transit.",
       "mitigation": "Enforce TLS 1.3 for all cross-boundary communications",
@@ -744,7 +804,10 @@
       "stride_category": "Information Disclosure",
       "title": "Plaintext data exposure: user-service -> postgres",
       "severity": "critical",
-      "evidence": "user-service → postgres transmits data without encryption",
+      "evidence": [
+        "user-service → postgres transmits data without encryption"
+      ],
+      "confidence": 0.9,
       "boundary": "Internal Services -> DMZ",
       "explanation": "Data from user-service to postgres traverses Internal Services to DMZ in plaintext. Sensitive information could be intercepted by network observers.",
       "mitigation": "Enable TLS 1.3 and enforce HTTPS-only communication",
@@ -760,7 +823,10 @@
       "stride_category": "Repudiation",
       "title": "Missing audit trail: user-service -> postgres",
       "severity": "medium",
-      "evidence": "Cross-boundary flow user-service → postgres crosses a high-risk boundary",
+      "evidence": [
+        "Cross-boundary flow user-service → postgres crosses a high-risk boundary"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services -> DMZ",
       "explanation": "Traffic crossing from Internal Services to DMZ should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
       "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
@@ -776,7 +842,10 @@
       "stride_category": "Spoofing",
       "title": "Unauthenticated flow: cdn -> nginx-gateway",
       "severity": "high",
-      "evidence": "cdn → nginx-gateway has no authentication mechanism",
+      "evidence": [
+        "cdn → nginx-gateway has no authentication mechanism"
+      ],
+      "confidence": 0.85,
       "boundary": "Public Internet -> DMZ",
       "explanation": "Traffic from cdn (Public Internet) to nginx-gateway (DMZ) lacks authentication. An attacker could impersonate cdn to access nginx-gateway.",
       "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
@@ -792,7 +861,10 @@
       "stride_category": "Repudiation",
       "title": "Missing audit trail: cdn -> nginx-gateway",
       "severity": "medium",
-      "evidence": "Cross-boundary flow cdn → nginx-gateway crosses a high-risk boundary",
+      "evidence": [
+        "Cross-boundary flow cdn → nginx-gateway crosses a high-risk boundary"
+      ],
+      "confidence": 0.85,
       "boundary": "Public Internet -> DMZ",
       "explanation": "Traffic crossing from Public Internet to DMZ should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
       "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
@@ -808,7 +880,10 @@
       "stride_category": "Denial of Service",
       "title": "Denial of service risk: nginx-gateway",
       "severity": "high",
-      "evidence": "nginx-gateway receives traffic from Public Internet",
+      "evidence": [
+        "nginx-gateway receives traffic from Public Internet"
+      ],
+      "confidence": 0.85,
       "boundary": "Public Internet -> DMZ",
       "explanation": "nginx-gateway in DMZ is reachable from Public Internet. Without rate limiting and circuit breakers, it could be overwhelmed by excessive requests.",
       "mitigation": "Implement rate limiting, circuit breakers, and auto-scaling",
@@ -823,7 +898,10 @@
       "stride_category": "Spoofing",
       "title": "Unauthenticated flow: user-service -> third-party-analytics",
       "severity": "medium",
-      "evidence": "user-service → third-party-analytics has no authentication mechanism",
+      "evidence": [
+        "user-service → third-party-analytics has no authentication mechanism"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services -> Third-Party APIs",
       "explanation": "Traffic from user-service (Internal Services) to third-party-analytics (Third-Party APIs) lacks authentication. An attacker could impersonate user-service to access third-party-analytics.",
       "mitigation": "Implement mutual TLS (mTLS) or service-to-service authentication tokens",
@@ -839,7 +917,10 @@
       "stride_category": "Repudiation",
       "title": "Missing audit trail: user-service -> third-party-analytics",
       "severity": "medium",
-      "evidence": "Cross-boundary flow user-service → third-party-analytics crosses a high-risk boundary",
+      "evidence": [
+        "Cross-boundary flow user-service → third-party-analytics crosses a high-risk boundary"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services -> Third-Party APIs",
       "explanation": "Traffic crossing from Internal Services to Third-Party APIs should be logged for audit and forensics. Without logging, malicious actions cannot be traced back to their source.",
       "mitigation": "Implement centralized logging with correlation IDs for all cross-boundary traffic",
@@ -855,7 +936,10 @@
       "stride_category": "Information Disclosure",
       "title": "HTTP explicitly allowed: payment-service",
       "severity": "high",
-      "evidence": "payment-service has ALLOW_HTTP=true in environment",
+      "evidence": [
+        "payment-service has ALLOW_HTTP=true in environment"
+      ],
+      "confidence": 0.9,
       "boundary": "DMZ",
       "explanation": "payment-service explicitly allows unencrypted HTTP traffic. Any data sent to or from this service could be intercepted.",
       "mitigation": "Remove ALLOW_HTTP and enforce HTTPS-only communication",
@@ -870,7 +954,10 @@
       "stride_category": "Information Disclosure",
       "title": "Publicly accessible database: postgres",
       "severity": "critical",
-      "evidence": "postgres (database) is in DMZ",
+      "evidence": [
+        "postgres (database) is in DMZ"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ",
       "explanation": "Database postgres is accessible from DMZ. Databases should never be directly reachable from untrusted zones.",
       "mitigation": "Move database to private subnet; access only through application tier",
@@ -885,7 +972,10 @@
       "stride_category": "Elevation of Privilege",
       "title": "Overly permissive IAM policy: aws_iam_role_policy.lambda_policy",
       "severity": "critical",
-      "evidence": "aws_iam_role_policy.lambda_policy has wildcard (*) IAM permissions",
+      "evidence": [
+        "aws_iam_role_policy.lambda_policy has wildcard (*) IAM permissions"
+      ],
+      "confidence": 0.9,
       "boundary": "Internal Services",
       "explanation": "aws_iam_role_policy.lambda_policy has been granted wildcard permissions (Action: *, Resource: *). If this component is compromised, the attacker gains full access to all AWS resources.",
       "mitigation": "Apply least-privilege IAM policies; scope permissions to specific resources and actions",
@@ -900,7 +990,10 @@
       "stride_category": "Information Disclosure",
       "title": "PII shared with third party: user-behavior-data",
       "severity": "high",
-      "evidence": "PII asset 'user-behavior-data' located at third-party component third-party-analytics",
+      "evidence": [
+        "PII asset 'user-behavior-data' located at third-party component third-party-analytics"
+      ],
+      "confidence": 0.85,
       "boundary": "Third-Party APIs",
       "explanation": "Personally identifiable information (user-behavior-data) is stored at or shared with third-party service third-party-analytics. This creates regulatory and privacy risks (GDPR, CCPA).",
       "mitigation": "Minimize PII sharing; implement data processing agreements; anonymize where possible",
@@ -915,7 +1008,10 @@
       "stride_category": "Information Disclosure",
       "title": "Secret in environment: jwt_secret",
       "severity": "high",
-      "evidence": "jwt_secret found in auth-service environment variables",
+      "evidence": [
+        "jwt_secret found in auth-service environment variables"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services",
       "explanation": "Sensitive credential 'jwt_secret' is stored as an environment variable in auth-service. Environment variables can leak through logs, crash dumps, and child processes.",
       "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
@@ -930,7 +1026,10 @@
       "stride_category": "Information Disclosure",
       "title": "Secret in environment: database_url",
       "severity": "high",
-      "evidence": "database_url found in auth-service environment variables",
+      "evidence": [
+        "database_url found in auth-service environment variables"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services",
       "explanation": "Sensitive credential 'database_url' is stored as an environment variable in auth-service. Environment variables can leak through logs, crash dumps, and child processes.",
       "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
@@ -945,7 +1044,10 @@
       "stride_category": "Information Disclosure",
       "title": "Secret in environment: stripe_secret_key",
       "severity": "high",
-      "evidence": "stripe_secret_key found in payment-service environment variables",
+      "evidence": [
+        "stripe_secret_key found in payment-service environment variables"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ",
       "explanation": "Sensitive credential 'stripe_secret_key' is stored as an environment variable in payment-service. Environment variables can leak through logs, crash dumps, and child processes.",
       "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
@@ -960,7 +1062,10 @@
       "stride_category": "Information Disclosure",
       "title": "Secret in environment: database_url",
       "severity": "high",
-      "evidence": "database_url found in payment-service environment variables",
+      "evidence": [
+        "database_url found in payment-service environment variables"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ",
       "explanation": "Sensitive credential 'database_url' is stored as an environment variable in payment-service. Environment variables can leak through logs, crash dumps, and child processes.",
       "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
@@ -975,7 +1080,10 @@
       "stride_category": "Information Disclosure",
       "title": "Secret in environment: database_url",
       "severity": "high",
-      "evidence": "database_url found in user-service environment variables",
+      "evidence": [
+        "database_url found in user-service environment variables"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services",
       "explanation": "Sensitive credential 'database_url' is stored as an environment variable in user-service. Environment variables can leak through logs, crash dumps, and child processes.",
       "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
@@ -990,7 +1098,10 @@
       "stride_category": "Information Disclosure",
       "title": "Secret in environment: email_api_key",
       "severity": "high",
-      "evidence": "email_api_key found in user-service environment variables",
+      "evidence": [
+        "email_api_key found in user-service environment variables"
+      ],
+      "confidence": 0.85,
       "boundary": "Internal Services",
       "explanation": "Sensitive credential 'email_api_key' is stored as an environment variable in user-service. Environment variables can leak through logs, crash dumps, and child processes.",
       "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",
@@ -1005,7 +1116,10 @@
       "stride_category": "Information Disclosure",
       "title": "Secret in environment: postgres_password",
       "severity": "high",
-      "evidence": "postgres_password found in postgres environment variables",
+      "evidence": [
+        "postgres_password found in postgres environment variables"
+      ],
+      "confidence": 0.85,
       "boundary": "DMZ",
       "explanation": "Sensitive credential 'postgres_password' is stored as an environment variable in postgres. Environment variables can leak through logs, crash dumps, and child processes.",
       "mitigation": "Use a secrets manager (Vault, AWS Secrets Manager) instead of environment variables",

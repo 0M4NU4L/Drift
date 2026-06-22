@@ -168,7 +168,7 @@ def _analyze_flow(
             stride_category=StrideCategory.SPOOFING,
             title=f"Unauthenticated flow: {src.name} -> {dst.name}",
             severity=_risk_score(likelihood, impact),
-            evidence=f"{flow.label} has no authentication mechanism",
+            evidence=[f"{flow.label} has no authentication mechanism"],
             boundary=boundary,
             explanation=(
                 f"Traffic from {src.name} ({src.trust_zone.value}) to {dst.name} "
@@ -193,7 +193,7 @@ def _analyze_flow(
             stride_category=StrideCategory.TAMPERING,
             title=f"Unencrypted traffic: {src.name} -> {dst.name}",
             severity=_risk_score(likelihood, impact),
-            evidence=f"{flow.label}{protocol_info} is not encrypted",
+            evidence=[f"{flow.label}{protocol_info} is not encrypted"],
             boundary=boundary,
             explanation=(
                 f"Data flowing from {src.name} to {dst.name} crosses from "
@@ -220,7 +220,7 @@ def _analyze_flow(
             stride_category=StrideCategory.INFORMATION_DISCLOSURE,
             title=f"Plaintext data exposure: {src.name} -> {dst.name}",
             severity=_risk_score(likelihood, impact),
-            evidence=f"{flow.label} transmits data without encryption",
+            evidence=[f"{flow.label} transmits data without encryption"],
             boundary=boundary,
             explanation=(
                 f"Data from {src.name} to {dst.name} traverses "
@@ -243,7 +243,7 @@ def _analyze_flow(
             stride_category=StrideCategory.REPUDIATION,
             title=f"Missing audit trail: {src.name} -> {dst.name}",
             severity=_risk_score(2, 3),
-            evidence=f"Cross-boundary flow {flow.label} crosses a high-risk boundary",
+            evidence=[f"Cross-boundary flow {flow.label} crosses a high-risk boundary"],
             boundary=boundary,
             explanation=(
                 f"Traffic crossing from {src.trust_zone.value} to {dst.trust_zone.value} "
@@ -267,7 +267,7 @@ def _analyze_flow(
             stride_category=StrideCategory.DENIAL_OF_SERVICE,
             title=f"Denial of service risk: {dst.name}",
             severity=_risk_score(likelihood, impact),
-            evidence=f"{dst.name} receives traffic from {src.trust_zone.value}",
+            evidence=[f"{dst.name} receives traffic from {src.trust_zone.value}"],
             boundary=boundary,
             explanation=(
                 f"{dst.name} in {dst.trust_zone.value} is reachable from "
@@ -292,10 +292,10 @@ def _analyze_flow(
                 stride_category=StrideCategory.ELEVATION_OF_PRIVILEGE,
                 title=f"Privilege escalation path: {src.name} -> {dst.name}",
                 severity=_risk_score(likelihood, impact),
-                evidence=(
+                evidence=[
                     f"{src.name} ({src.trust_zone.value}) can reach "
                     f"{dst.name} ({dst.trust_zone.value})"
-                ),
+                ],
                 boundary=boundary,
                 explanation=(
                     f"A path exists from {src.trust_zone.value} to the sensitive "
@@ -323,7 +323,7 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
             stride_category=StrideCategory.ELEVATION_OF_PRIVILEGE,
             title=f"Privileged container: {comp.name}",
             severity=Severity.CRITICAL,
-            evidence=f"{comp.name} runs in privileged mode",
+            evidence=[f"{comp.name} runs in privileged mode"],
             boundary=boundary,
             explanation=(
                 f"{comp.name} is configured to run with elevated privileges. "
@@ -342,7 +342,7 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
             stride_category=StrideCategory.INFORMATION_DISCLOSURE,
             title=f"Host network access: {comp.name}",
             severity=Severity.HIGH,
-            evidence=f"{comp.name} uses host networking",
+            evidence=[f"{comp.name} uses host networking"],
             boundary=boundary,
             explanation=(
                 f"{comp.name} shares the host's network namespace, bypassing "
@@ -362,7 +362,7 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
             stride_category=StrideCategory.INFORMATION_DISCLOSURE,
             title=f"HTTP explicitly allowed: {comp.name}",
             severity=Severity.HIGH,
-            evidence=f"{comp.name} has ALLOW_HTTP=true in environment",
+            evidence=[f"{comp.name} has ALLOW_HTTP=true in environment"],
             boundary=boundary,
             explanation=(
                 f"{comp.name} explicitly allows unencrypted HTTP traffic. "
@@ -382,7 +382,7 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
                 stride_category=StrideCategory.INFORMATION_DISCLOSURE,
                 title=f"Publicly accessible database: {comp.name}",
                 severity=Severity.CRITICAL,
-                evidence=f"{comp.name} (database) is in {comp.trust_zone.value}",
+                evidence=[f"{comp.name} (database) is in {comp.trust_zone.value}"],
                 boundary=boundary,
                 explanation=(
                     f"Database {comp.name} is accessible from {comp.trust_zone.value}. "
@@ -401,7 +401,7 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
             stride_category=StrideCategory.ELEVATION_OF_PRIVILEGE,
             title=f"Overly permissive IAM policy: {comp.name}",
             severity=Severity.CRITICAL,
-            evidence=f"{comp.name} has wildcard (*) IAM permissions",
+            evidence=[f"{comp.name} has wildcard (*) IAM permissions"],
             boundary=boundary,
             explanation=(
                 f"{comp.name} has been granted wildcard permissions (Action: *, Resource: *). "
@@ -420,7 +420,7 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
             stride_category=StrideCategory.INFORMATION_DISCLOSURE,
             title=f"Publicly accessible storage: {comp.name}",
             severity=Severity.HIGH,
-            evidence=f"{comp.name} has public access enabled",
+            evidence=[f"{comp.name} has public access enabled"],
             boundary=boundary,
             explanation=(
                 f"Storage resource {comp.name} allows public access. "
@@ -440,7 +440,7 @@ def _analyze_component(comp: Component, arch: Architecture) -> list[Threat]:
                 stride_category=StrideCategory.INFORMATION_DISCLOSURE,
                 title=f"Missing encryption at rest: {comp.name}",
                 severity=Severity.HIGH,
-                evidence=f"{comp.name} does not have encryption at rest configured",
+                evidence=[f"{comp.name} does not have encryption at rest configured"],
                 boundary=boundary,
                 explanation=(
                     f"Database {comp.name} stores data without encryption at rest. "
@@ -480,7 +480,7 @@ def _analyze_asset(
             stride_category=StrideCategory.INFORMATION_DISCLOSURE,
             title=f"Secret in environment: {asset.name}",
             severity=_risk_score(3, sensitivity),
-            evidence=f"{asset.name} found in {comp.name} environment variables",
+            evidence=[f"{asset.name} found in {comp.name} environment variables"],
             boundary=boundary,
             explanation=(
                 f"Sensitive credential '{asset.name}' is stored as an environment variable "
@@ -504,7 +504,7 @@ def _analyze_asset(
             stride_category=StrideCategory.INFORMATION_DISCLOSURE,
             title=f"PII shared with third party: {asset.name}",
             severity=Severity.HIGH,
-            evidence=f"PII asset '{asset.name}' located at third-party component {comp.name}",
+            evidence=[f"PII asset '{asset.name}' located at third-party component {comp.name}"],
             boundary=boundary,
             explanation=(
                 f"Personally identifiable information ({asset.name}) is stored at or "
@@ -528,7 +528,7 @@ def _analyze_asset(
             stride_category=StrideCategory.INFORMATION_DISCLOSURE,
             title=f"Card data outside PCI zone: {asset.name}",
             severity=Severity.CRITICAL,
-            evidence=f"Card data '{asset.name}' in {comp.name} ({comp.trust_zone.value}), not PCI zone",
+            evidence=[f"Card data '{asset.name}' in {comp.name} ({comp.trust_zone.value}), not PCI zone"],
             boundary=boundary,
             explanation=(
                 f"Payment card data ({asset.name}) is handled by {comp.name} which "

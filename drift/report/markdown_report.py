@@ -99,12 +99,19 @@ def generate_report(result: AnalysisResult, output_path: str = "THREAT_REPORT.md
         sorted_threats = sorted(threats, key=lambda t: list(Severity).index(t.severity))
         
         for t in sorted_threats:
+            conf_percent = int(t.confidence * 100)
             lines.extend([
                 f"### {_SEV_ICONS[t.severity]} | {t.title}",
                 f"- **STRIDE Category:** {t.stride_category.value}",
                 f"- **Boundary Crossed:** {t.boundary}",
                 f"- **Affected Components:** {', '.join(t.affected_components)}",
-                f"- **Evidence:** `{t.evidence}`",
+                f"- **Confidence:** {conf_percent}%",
+                "- **Evidence:**"
+            ])
+            for ev in t.evidence:
+                lines.append(f"  - `{ev}`")
+            
+            lines.extend([
                 "",
                 "**Explanation:**",
                 t.explanation,

@@ -108,6 +108,7 @@ def display_analysis(result: AnalysisResult) -> None:
             header_style="bold magenta",
         )
         table.add_column("Severity", justify="left")
+        table.add_column("Confidence", justify="right")
         table.add_column("Category", justify="left")
         table.add_column("Title", style="white")
         table.add_column("Boundary", style="dim")
@@ -121,8 +122,12 @@ def display_analysis(result: AnalysisResult) -> None:
         for t in sorted_threats:
             color = _SEV_COLORS[t.severity]
             icon = _SEV_ICONS[t.severity]
+            conf_percent = int(t.confidence * 100)
+            conf_color = "green" if conf_percent >= 90 else ("yellow" if conf_percent >= 75 else "red")
+            
             table.add_row(
                 f"[{color}]{icon} {t.severity.value.upper()}[/{color}]",
+                f"[{conf_color}]{conf_percent}%[/{conf_color}]",
                 t.stride_category.value,
                 t.title,
                 t.boundary,

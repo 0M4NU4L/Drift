@@ -76,7 +76,12 @@ def _run_analysis(
     # Step 3: Run STRIDE analysis
     console.print("[bold cyan]>[/bold cyan] Running STRIDE analysis...", highlight=False)
     threats = stride_analyze(architecture)
-    console.print(f"  Generated [bold]{len(threats)}[/bold] threats")
+    console.print(f"  Generated [bold]{len(threats)}[/bold] raw threats")
+
+    # Step 3.5: Validation Layer
+    from drift.engine.validation_engine import validate_threats
+    threats = validate_threats(threats, architecture)
+    console.print(f"  [green]OK[/green] Validated & Deduplicated to [bold]{len(threats)}[/bold] threats")
 
     # Step 4: AI augmentation (optional)
     ai_enhanced = False

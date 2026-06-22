@@ -32,15 +32,16 @@ def generate_pr_comment(result: AnalysisResult) -> str:
     if delta.new_threats:
         lines.extend([
             "### New Threats",
-            "| Severity | Category | Title | Boundary |",
-            "|----------|----------|-------|----------|",
+            "| Severity | Confidence | Category | Title | Boundary |",
+            "|----------|------------|----------|-------|----------|",
         ])
         # Sort by severity
         sorted_new = sorted(delta.new_threats, key=lambda t: list(Severity).index(t.severity))
         for t in sorted_new:
             icon = _SEV_ICONS[t.severity]
             sev = t.severity.value.upper()
-            lines.append(f"| {icon} {sev} | {t.stride_category.value} | {t.title} | {t.boundary} |")
+            conf = f"{int(t.confidence * 100)}%"
+            lines.append(f"| {icon} {sev} | {conf} | {t.stride_category.value} | {t.title} | {t.boundary} |")
         lines.append("")
 
     # Mitigated Threats

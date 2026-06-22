@@ -157,9 +157,10 @@ class AIEngine:
         """Enhance a batch of threats with AI explanations."""
         threats_desc = []
         for i, t in enumerate(threats):
+            evidence_str = "; ".join(t.evidence)
             threats_desc.append(
                 f"{i+1}. [{t.severity.value.upper()}] {t.stride_category.value}: {t.title}\n"
-                f"   Evidence: {t.evidence}\n"
+                f"   Evidence: {evidence_str}\n"
                 f"   Boundary: {t.boundary}"
             )
 
@@ -261,7 +262,8 @@ ID5"""
         if delta.new_threats:
             parts.append("New threats:")
             for t in delta.new_threats[:5]:  # Cap at 5
-                parts.append(f"  - [{t.severity.value}] {t.title}: {t.evidence}")
+                evidence_str = "; ".join(t.evidence)
+                parts.append(f"  - [{t.severity.value}] {t.title}: {evidence_str}")
 
         if delta.mitigated_threats:
             parts.append("Mitigated threats:")
