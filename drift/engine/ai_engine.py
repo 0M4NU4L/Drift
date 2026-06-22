@@ -16,6 +16,7 @@ from __future__ import annotations
 import json
 import os
 import logging
+import time
 from typing import Optional
 
 from drift.models import (
@@ -119,15 +120,25 @@ class AIEngine:
         if not self._client:
             return None
 
-        try:
-            response = self._client.models.generate_content(
-                model=self._model,
-                contents=prompt,
-            )
-            return response.text
-        except Exception as e:
-            logger.warning(f"AI generation failed: {e}")
-            return None
+        max_retries = 3
+        for attempt in range(max_retries):
+            try:
+                response = self._client.models.generate_content(
+                    model=self._model,
+                    contents=prompt,
+                )
+                return response.text
+            except Exception as e:
+                err_str = str(e)
+                if "429" in err_str or "RESOURCE_EXHAUSTED" in err_str:
+                    if attempt < max_retries - 1:
+                        delay = 60  # Gemini free tier resets every minute
+                        logger.warning(f"AI rate limit hit (429). Retrying in {delay}s...")
+                        time.sleep(delay)
+                        continue
+                logger.warning(f"AI generation failed: {e}")
+                return None
+        return None
 
     def _build_architecture_context(self, arch: Architecture) -> str:
         """Build a concise architecture description for AI context."""

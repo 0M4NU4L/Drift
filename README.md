@@ -125,13 +125,15 @@ risks. Enforce TLS 1.3 with mTLS between services."
 
 ## AI Configuration
 
-Drift uses Google Gemini for AI augmentation. Set your API key:
+Drift uses Google Gemini for AI augmentation. Set your API key in your shell or in a local `.env` file in the working directory:
 
 ```bash
-export GEMINI_API_KEY=your-key-here
+GEMINI_API_KEY=your-key-here
 ```
 
 Without an API key, Drift works perfectly with rule-based analysis only. Use `--no-ai` to explicitly skip AI.
+
+On Windows, `.env` is the easiest option because the CLI loads it automatically when Drift starts.
 
 ---
 
